@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:latest
+    container_name: postgres_benchmark
+    environment:
+      POSTGRES_DB: benchmark_tpc_h
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password 
+    volumes:
+      - ./schema/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./dbgen:/docker-entrypoint-initdb.d/dbgen
+    ports:
+      - "5433:5432" ## set your desired port (probably if you have postgres installed you wont be able to run on 5432)
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: postgres@admin.com  
+      PGADMIN_DEFAULT_PASSWORD: password        
+    ports:
+      - "5050:80"                       
+    depends_on:
+      - db
+
