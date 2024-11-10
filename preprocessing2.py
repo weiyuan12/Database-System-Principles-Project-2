@@ -16,30 +16,45 @@ def parse_projections(select_clause):
         return ["*"]  # Wildcard indicates all columns
     return projections
 
-def parse_joins(where_clause, tables):
+def parse_conditions(where_clause, tables):
     """
-    Parse join conditions from the WHERE clause.
+    Parse conditions from the WHERE clause and separate them into joins and selects.
     """
     joins = []
-    for table in tables:
-        table_alias = table["alias"]
-        # Match conditions for joins between table aliases
-        condition_pattern = rf"{table_alias}\.\w+\s*=\s*\w+\.\w+"
-        matches = re.findall(condition_pattern, where_clause)
+    selects = []
+    
+    # Find all conditions with comparison operators
+    condition_pattern = r"(\w+\.\w+)\s*(=|>|<|>=|<=)\s*(\w+\.\w+|\w+)"
+    matches = re.findall(condition_pattern, where_clause)
 
-        # Parse each condition to form the join structure
-        for match in matches:
-            # Split only once on '.' to avoid unpacking errors
-            left_part, right_part = match.split("=", 1)
-            left_alias, left_column = left_part.strip().split(".", 1)
-            right_alias, right_column = right_part.strip().split(".", 1)
+    for left_side, operator, right_side in matches:
+        # Count dots to determine if the condition is a join or select
+        left_dots = left_side.count(".")
+        right_dots = right_side.count(".")
 
+        if left_dots == 1 and right_dots == 1:
+            # It's a join condition
+            left_alias, left_column = left_side.split(".")
+            right_alias, right_column = right_side.split(".")
+            
             join_pair = [
                 {"table": next(t["table"] for t in tables if t["alias"] == left_alias), "alias": left_alias, "on": left_column},
                 {"table": next(t["table"] for t in tables if t["alias"] == right_alias), "alias": right_alias, "on": right_column}
             ]
             joins.append(join_pair)
-    return joins
+        else:
+            # It's a select condition (single table field comparison)
+            if left_dots == 1:
+                alias = left_side.split(".")[0]
+            elif right_dots == 1:
+                alias = right_side.split(".")[0]
+            selects.append({
+                "left": left_side,
+                "operator": operator,
+                "right": right_side,
+                "alias": alias
+            })
+    return joins, selects
 
 def preprocess_query(sql_query):
     # Initialize metadata structure
@@ -47,7 +62,8 @@ def preprocess_query(sql_query):
         "operation": "SELECT",
         "projections": [],
         "source": [],
-        "joins": []
+        "joins": [],
+        "selects": []
     }
     
     # Extract the main parts of the SQL query using regex
@@ -64,10 +80,12 @@ def preprocess_query(sql_query):
         tables = parse_tables_from_clause(from_clause)
         metadata["source"] = tables
 
-        # Extract joins if any join conditions exist
+        # Extract joins and selects if any conditions exist in WHERE clause
         if where_match:
             where_clause = where_match.group(1).strip()
-            metadata["joins"] = parse_joins(where_clause, tables)
+            joins, selects = parse_conditions(where_clause, tables)
+            metadata["joins"] = joins
+            metadata["selects"] = selects
     
     # Add a suffix to operation if there are joins
     if metadata["joins"]:
@@ -77,9 +95,20 @@ def preprocess_query(sql_query):
 
 # Example usage
 if __name__ == "__main__":
-    sql_query = """
-    SELECT C.name, O.id FROM customer C, orders O WHERE C.c_custkey = O.o_custkey
-    """
+    sql_query =  '''
+    SELECT C.name, O.id, P.description 
+    FROM customer C, orders O, product P 
+    WHERE C.c_custkey = O.o_custkey 
+      AND O.o_productkey = P.p_productkey 
+      AND C.age > 25
+      AND P.price < 100
+    '''
+
+
+    '''
+    SELECT C.name, O.id FROM customer C, orders O WHERE C.c_custkey = O.o_custkey AND C.age > 25
+    '''
     metadata = preprocess_query(sql_query)
     print("Parsed Metadata:", metadata)
+
 
