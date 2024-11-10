@@ -1,5 +1,13 @@
 "# Database-System-Principles-Project-2" 
 
+
+### Run the interface.py to launch the application
+
+```bash
+python interface.py
+```
+
+
 ### TPC-H
 Prerequisites:
     - Windows OS

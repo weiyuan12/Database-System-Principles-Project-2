@@ -1,7 +1,10 @@
 import re
 
 def parse_tables_from_clause(from_clause):
-    # Extract table names and aliases from the FROM clause
+    '''
+    Extract table names and aliases in FROM clause
+    from_clause: The FROM clause of the raw query
+    '''
     tables = []
     for match in re.finditer(r"(\w+)\s+(\w+)?", from_clause, re.IGNORECASE):
         table_name = match.group(1)
@@ -10,7 +13,10 @@ def parse_tables_from_clause(from_clause):
     return tables
 
 def parse_projections(select_clause):
-    # Extract columns specified in SELECT, ignoring aggregates and functions for simplicity
+    '''
+    Extract columns specified in SELECT
+    select_clause: The SELECT clause of the raw query
+    '''
     projections = [col.strip() for col in select_clause.split(",")]
     if '*' in projections:
         return ["*"]  # Wildcard indicates all columns
@@ -19,6 +25,7 @@ def parse_projections(select_clause):
 def parse_conditions(where_clause, tables):
     """
     Parse conditions from the WHERE clause and separate them into joins and selects.
+    tables: List of tables with their aliases
     """
     joins = []
     selects = []
@@ -57,7 +64,10 @@ def parse_conditions(where_clause, tables):
     return joins, selects
 
 def preprocess_query(sql_query):
-    # Initialize metadata structure
+    '''
+    Main functio to preprocess the query
+    sql_query: The SQL query string (assuming it has no aggregation)
+    '''
     metadata = {
         "operation": "SELECT",
         "projections": [],

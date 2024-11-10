@@ -1,6 +1,14 @@
 from example import query_input,query_input_2,query_input_3
 
 class QueryNode:
+    '''
+    QueryNode class
+    - node_type: the type of the node (e.g. Source, Projection, Selection, Join)
+    - value: the value of the node (e.g. table name, condition)
+    - children: the list of child nodes
+    - alias (optional params for Join): the alias of the node
+    - id: the unique identifier of the node (auto-incremented, to prevent collisions)
+    '''
     _id_counter = 1
     def __init__(self, node_type, value=None):
         self.node_type = node_type  
@@ -31,6 +39,9 @@ class QueryNode:
 def join_tables(query_dict,join_index,checkpoint):
     '''
     This function aims to join 2 tables from the bottom up
+    - query_dict: the processed query from preprocessing.py
+    - join_index: the index of the join to be performed in the query_dict
+    - checkpoint: the checkpoint node to start the join from
     '''
     if checkpoint and checkpoint.get_node_type() != "Join":
         raise ValueError("Checkpoint must be a Join node")
@@ -41,6 +52,7 @@ def join_tables(query_dict,join_index,checkpoint):
     join_alias_1=query_dict["joins"][join_index][0]["alias"]
     join_alias_2=query_dict["joins"][join_index][1]["alias"]
     join_aliases=[join_alias_1,join_alias_2]
+
     # Loop through all sources to find the joins
     for i in range(len(join_aliases)):
         # define the source
@@ -96,9 +108,13 @@ def join_tables(query_dict,join_index,checkpoint):
     return root
 
 def build_query_tree(query_dict):
+    '''
+    Main function to build the query tree
+    - query_dict: the processed query from preprocessing.py
+    '''
     curr_top=None
     for i in range(0,len(query_dict["joins"])):
-        # get the current top of the join,
+        # get the current top of the join as the checkpoint
         new_top = join_tables(query_dict,i,curr_top)
         if curr_top is not None:
             new_top.add_child(curr_top)
@@ -107,10 +123,13 @@ def build_query_tree(query_dict):
     return curr_top
 
 def get_nodes_and_edges(node):
+    '''
+    Get the nodes and edges of the query tree
+    '''
     nodes = []
     edges = []
 
-    # Recursive helper function to collect nodes and edges
+    # Recurse to collect the nodes
     def traverse(node):
         nodes.append((node.id, node.node_type, node.value))
         for child in node.children:
@@ -126,6 +145,7 @@ query_tree = build_query_tree(query_input_3)
 
 # Retrieve nodes and edges
 nodes, edges = get_nodes_and_edges(query_tree)
+'''
 
 # Print the query tree structure
 print("Query Tree Structure:")
@@ -139,6 +159,7 @@ for node_id, node_type, value in nodes:
 print("\nEdges:")
 for parent_id, child_id in edges:
     print(f"Parent ID: {parent_id} -> Child ID: {child_id}")
+
 
 import tkinter as tk
 
@@ -201,3 +222,4 @@ root = tk.Tk()
 root.title("Query Tree Visualization")
 visualizer = TreeVisualizer(root, nodes, edges)
 root.mainloop()
+'''

@@ -35,7 +35,7 @@ class TreeVisualizer:
 
         # Draw the node as a rectangle with text
         text = f"{node_type}: {value}"
-        node_width = max(100, len(text) * 7)
+        node_width = max(50, len(text) * 5)
         rect = self.canvas.create_rectangle(x - node_width // 2, y - 10,
                                             x + node_width // 2, y + 10, fill="lightblue")
         self.canvas.create_text(x, y, text=text, font=("Arial", 10))
@@ -55,7 +55,7 @@ class TreeVisualizer:
 
 # Define nodes and edges as per the tree structure
 
-query_tree = build_query_tree(query_input)
+query_tree = build_query_tree(query_input_3)
 nodes, edges = get_nodes_and_edges(query_tree)
 
 # Set up the Tkinter window and visualize the tree
