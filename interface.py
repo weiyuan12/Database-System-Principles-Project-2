@@ -1,13 +1,13 @@
 
 import tkinter as tk
 from whatif import get_nodes_and_edges,build_query_tree
-from example import query_input,query_input_2,query_input_3
+from example import query_input,query_input_2,query_input_3,query_input_4
 class TreeVisualizer:
     def __init__(self, root, nodes, edges):
         self.root = root
         self.nodes = nodes
         self.edges = edges
-        self.canvas = tk.Canvas(root, width=600, height=400, bg='white')
+        self.canvas = tk.Canvas(root, width=800, height=700, bg='white')
         self.canvas.pack()
         
         self.node_positions = {}  # Store the positions of nodes for edge drawing
@@ -55,7 +55,7 @@ class TreeVisualizer:
 
 # Define nodes and edges as per the tree structure
 
-query_tree = build_query_tree(query_input_3)
+query_tree = build_query_tree(query_input_4)
 nodes, edges = get_nodes_and_edges(query_tree)
 
 # Set up the Tkinter window and visualize the tree

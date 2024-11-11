@@ -92,18 +92,30 @@ def join_tables(query_dict,join_index,checkpoint):
                 top_level_sources.append(source_node)
 
     # Join all top_level_sources
-    
     if(source_alias==join_alias_1):
         join=join_alias_1 + "." + query_dict["joins"][join_index][0]["on"] + " = " +join_alias_2+ "." +query_dict["joins"][join_index][1]["on"]
         join_node = QueryNode("Join", join)
+
     elif(source_alias==join_alias_2):
         join=join_alias_1 + "." + query_dict["joins"][join_index][0]["on"] + " = " +join_alias_2+ "." +query_dict["joins"][join_index][1]["on"]
         join_node = QueryNode("Join", join)
-    
+
     for k in top_level_sources:
         join_node.add_child(k)
-    join_node.add_alias(join_alias_1)
-    join_node.add_alias(join_alias_2)
+    
+    # if there is a checkpoint add the aliases to it if they do not exist
+    if checkpoint is not None:
+        curr_list_of_aliases=checkpoint.get_alias()
+
+        for alias in curr_list_of_aliases:
+            join_node.add_alias(alias)
+        if join_alias_1 not in  curr_list_of_aliases:
+            join_node.add_alias(join_alias_1)
+        if join_alias_2 not in curr_list_of_aliases:
+            join_node.add_alias(join_alias_2)
+    else:
+        join_node.add_alias(join_alias_1)
+        join_node.add_alias(join_alias_2)
     root=join_node
     return root
 

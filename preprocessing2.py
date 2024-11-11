@@ -106,6 +106,18 @@ def preprocess_query(sql_query):
 # Example usage
 if __name__ == "__main__":
     sql_query =  '''
+    SELECT C.name, O.id, P.description, S.stock
+    FROM customer C, orders O, product P, supplier S
+    WHERE C.c_custkey = O.o_custkey 
+    AND O.o_productkey = P.p_productkey 
+    AND P.p_supplierkey = S.s_supplierkey
+    AND C.age > 25
+    AND P.price < 100
+    AND S.rating > 4
+    '''
+    
+    
+    '''
     SELECT C.name, O.id, P.description 
     FROM customer C, orders O, product P 
     WHERE C.c_custkey = O.o_custkey 
@@ -114,9 +126,19 @@ if __name__ == "__main__":
       AND P.price < 100
     '''
 
-
     '''
     SELECT C.name, O.id FROM customer C, orders O WHERE C.c_custkey = O.o_custkey AND C.age > 25
+    '''
+
+    '''
+    SELECT C.name, O.id, P.description, S.stock
+    FROM customer C, orders O, product P, supplier S
+    WHERE C.c_custkey = O.o_custkey 
+    AND O.o_productkey = P.p_productkey 
+    AND P.p_supplierkey = S.s_supplierkey
+    AND C.age > 25
+    AND P.price < 100
+    AND S.rating > 4
     '''
     metadata = preprocess_query(sql_query)
     print("Parsed Metadata:", metadata)
