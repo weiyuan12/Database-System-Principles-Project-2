@@ -1,5 +1,8 @@
 import psycopg2
-
+from graphviz import Digraph
+import tkinter as tk
+from tkinter import ttk
+import re
 # Database connection parameters
 host = "localhost"
 port = "5433"       
@@ -47,4 +50,29 @@ def query_row_counts():
     except Exception as e:
         print(f"Error: {e}")
 
-item = query_row_counts()
+
+
+def get_execution_plan(query):
+    try:
+        # Establish the connection
+        conn = psycopg2.connect(
+            dbname=dbname,
+            user=user,
+            password=password,
+            host=host,
+            port=port
+        )
+
+        with conn.cursor() as cur:
+            # Use EXPLAIN to get the execution plan
+            cur.execute(f"EXPLAIN ANALYSE {query}")
+            # Fetch all lines of the plan
+            plan = cur.fetchall()
+            # Join the plan lines into a single string for easy viewing
+            execution_plan = "\n".join([line[0] for line in plan])
+            conn.close()
+            return execution_plan
+    except Exception as e:
+        print(f"Error: {e}")
+
+

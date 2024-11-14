@@ -1,4 +1,4 @@
-from example import query_input_1,query_input_2,query_input_3
+from example import query_input_1
 from pgconn import query_row_counts
 class QueryNode:
     '''
@@ -58,13 +58,13 @@ def select_and_project(query_dict,source_alias):
     returns: selection node?, projection node?
     '''
 
-    projections = []
+    #projections = []
     selections = []
     source_node=QueryNode("Source",source_alias)
     
     # Check for Selections (range queries)
     selection_node=None
-    projection_node=None
+    #projection_node=None
     # selection
     for m in range(len(query_dict["selects"])):
         selection_alias=query_dict["selects"][m]["alias"]
@@ -72,6 +72,8 @@ def select_and_project(query_dict,source_alias):
             selections.append(query_dict["selects"][m]["left"]+query_dict["selects"][m]["operator"]+query_dict["selects"][m]["right"])
             selection_node=QueryNode("Selection",selections)
             selection_node.add_child(source_node)
+    '''
+    
     join_hashmap={}
     if len(query_dict["joins"])>0:
         join_hashmap=generate_join_hashmap(query_dict)
@@ -94,7 +96,9 @@ def select_and_project(query_dict,source_alias):
                 projection_node.add_child(selection_node)
             else:
                 projection_node.add_child(source_node)
-    return selection_node,projection_node
+    '''
+    #return selection_node,projection_node
+    return selection_node
 
 def join_tables(query_dict,join_index,current_intermediate_relations):
     '''
@@ -159,15 +163,23 @@ def join_tables(query_dict,join_index,current_intermediate_relations):
             source_node=QueryNode("Source",source_alias)
             
             # Check for Selections (range queries)
+            '''
+            
             selection_node,projection_node=select_and_project(query_dict,source_alias)
                         
             if projection_node is not None:
                 top_level_sources.append(projection_node)
-            elif selection_node is not None:
+            if selection_node is not None:
                 top_level_sources.append(selection_node)
             else:
                 top_level_sources.append(source_node)
-        
+            '''
+            selection_node=select_and_project(query_dict,source_alias)
+                    
+            if selection_node is not None:
+                top_level_sources.append(selection_node)
+            else:
+                top_level_sources.append(source_node)
     # Join all top_level_sources
     if(source_alias==join_alias_1):
         join=join_alias_1 + "." + query_dict["joins"][join_index][0]["on"] + " = " +join_alias_2+ "." +query_dict["joins"][join_index][1]["on"]
@@ -212,6 +224,8 @@ def build_query_tree(query_dict,join_order):
     # Cond #1 no join
     if(len(query_dict["joins"])==0 and len(query_dict["source"])==1):
         source_alias= query_dict["source"][0]["alias"]
+        '''
+     
         selection_node,projection_node=select_and_project(query_dict,source_alias)
                     
         if projection_node is not None:
@@ -220,7 +234,13 @@ def build_query_tree(query_dict,join_order):
             return selection_node
         else:
             return QueryNode("Source",source_alias)
-    
+        '''
+        selection_node=select_and_project(query_dict,source_alias)
+        if selection_node is not None:
+            return selection_node
+        else:
+            return QueryNode("Source",source_alias)
+
     # Cond #2 There are joins
     for i in join_order:
         # get the current top of the join as the checkpoint
@@ -247,6 +267,7 @@ def get_nodes_and_edges(node):
     
     traverse(node)
     return nodes, edges
+
 def generate_join_hashmap(query_input):
     '''
     Generates hashmap of joins and important columns
@@ -267,7 +288,7 @@ def generate_join_hashmap(query_input):
     
     return hashmap
 # default is [0,1,2,3,4....,n-1] for n-1 joins
-join_order=list(range(len(query_input_3["joins"])))
+join_order=list(range(len(query_input_1["joins"])))
 '''
 # Build the query tree
 query_tree = build_query_tree(query_input_3,join_order)
