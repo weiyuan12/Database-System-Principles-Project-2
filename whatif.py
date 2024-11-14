@@ -91,7 +91,7 @@ def select_and_project(query_dict,source_alias):
 
 def join_tables(query_dict,join_index,current_intermediate_relations):
     '''
-    This function aims to join 2 tables from the bottom up
+    Join 2 tables from the bottom up
     - query_dict: the processed query from preprocessing.py
     - join_index: the index of the join to be performed in the query_dict
     - intermediate_relations: the array of checkpoint nodes (intermediate relations)
@@ -241,7 +241,12 @@ def get_nodes_and_edges(node):
     traverse(node)
     return nodes, edges
 def generate_join_hashmap(query_input):
-    join_dict = {}
+    '''
+    Generates hashmap of joins and important columns
+    - query_input: the query dict
+    returns hashmap of joins
+    '''
+    hashmap = {}
     
     for join in query_input.get('joins', []):
         for segment in join:
@@ -249,11 +254,11 @@ def generate_join_hashmap(query_input):
             on_condition = segment['on']
             
             # Add the 'on' condition to the corresponding table alias in the dictionary
-            if table_alias not in join_dict:
-                join_dict[table_alias] = []
-            join_dict[table_alias].append(on_condition)
+            if table_alias not in hashmap:
+                hashmap[table_alias] = []
+            hashmap[table_alias].append(on_condition)
     
-    return join_dict
+    return hashmap
 # default is [0,1,2,3,4....,n-1] for n-1 joins
 join_order=list(range(len(query_input_3["joins"])))
 
