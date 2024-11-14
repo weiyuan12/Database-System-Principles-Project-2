@@ -38,7 +38,14 @@ class QueryNode:
     
 def get_db_metrics():
     '''
-    return: dictionary row counts tuples for each table in the database
+    Greg implement here:
+    - select (index) 0,1,2 type of join
+    - return: {
+    join:""
+    type:"string"
+    cost:0
+    }
+
     '''
     return query_row_counts()
 
@@ -261,15 +268,19 @@ def generate_join_hashmap(query_input):
     return hashmap
 # default is [0,1,2,3,4....,n-1] for n-1 joins
 join_order=list(range(len(query_input_3["joins"])))
-
+'''
 # Build the query tree
 query_tree = build_query_tree(query_input_3,join_order)
 
 # Retrieve nodes and edges
 nodes, edges = get_nodes_and_edges(query_tree)
+'''
+
 items=get_db_metrics()
 print(items)
+
 '''
+
 # Print the query tree structure
 print("Query Tree Structure:")
 print(query_tree)
@@ -283,3 +294,6 @@ print("\nEdges:")
 for parent_id, child_id in edges:
     print(f"Parent ID: {parent_id} -> Child ID: {child_id}")
 '''
+
+
+#{'lineitem': 6001215, 'orders': 1500000, 'part': 200000, 'partsupp': 800000, 'customer': 150000, 'supplier': 10000, 'region': 5, 'nation': 25}
