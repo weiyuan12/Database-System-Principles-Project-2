@@ -16,7 +16,7 @@ class TreeVisualizer:
         self.join_order = list(range(len(query_dict["joins"])))
         # Set the default window size to 700x500
         self.root.geometry("1000x1000")
-
+        self.join_types=[]
         # Create a frame to hold the canvas and scrollbars
         self.frame = tk.Frame(root)
         self.frame.pack(fill=tk.BOTH, expand=True)
