@@ -13,8 +13,51 @@ tables = [
     "customer", "supplier", "region", "nation"
 ]
 
+class PgConn(object):
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(PgConn, cls).__new__(cls)
+            cls._instance.conn = psycopg2.connect(
+                dbname=dbname,
+                user=user,
+                password=password,
+                host=host,
+                port=port
+            )
+        return cls._instance
+
+    def get_connection(self):
+        return self.conn
+    
+    def close_connection(self):
+        self.conn.close()
+
+    def get_row_count(self, table):
+        with self.conn.cursor() as cur:
+            cur.execute(f"SELECT COUNT(*) FROM {table}")
+            count = cur.fetchone()[0]
+            return count
+        
+    def query_row_counts(self):
+        pg_stats = {}
+        for table in tables:
+            row_count = self.get_row_count(table)
+            pg_stats[table] = row_count
+        return pg_stats
+
+    def get_no_blocks(self, table):
+        ''' returns 0 if table is small (less than 50)'''
+        with self.conn.cursor() as cur:
+            cur.execute(f"SELECT relpages FROM pg_class WHERE relname = '{table}'")
+            result = cur.fetchone()
+            count = result[0] if result else None
+            return count
+
 # Function to get the number of rows in a table
 def get_row_count(conn, table):
+    'Deprecated function. Use PgConn class instead.'
     with conn.cursor() as cur:
         # SQL query to count the rows
         cur.execute(f"SELECT COUNT(*) FROM {table}")
@@ -23,6 +66,7 @@ def get_row_count(conn, table):
         return count
 
 def query_row_counts():
+    'Deprecated function. Use PgConn class instead.'
     try:
         # Establish the connection
         conn = psycopg2.connect(
@@ -47,4 +91,13 @@ def query_row_counts():
     except Exception as e:
         print(f"Error: {e}")
 
-item = query_row_counts()
+
+
+if __name__ == "__main__":
+    pgconn = PgConn()
+    pg_stats = pgconn.query_row_counts()
+    print(pg_stats)
+    for table in tables:
+        print(f"Table {table} has {pgconn.get_no_blocks(table)} blocks.")
+
+    print("Table invalid_name has", pgconn.get_no_blocks("invalid_name"), "blocks.")
