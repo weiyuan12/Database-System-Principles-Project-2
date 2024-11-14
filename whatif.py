@@ -1,5 +1,5 @@
 from example import query_input_1,query_input_2,query_input_3
-
+from pgconn import query_row_counts
 class QueryNode:
     '''
     QueryNode class
@@ -35,6 +35,12 @@ class QueryNode:
         for child in self.children:
             repr_str += child.__repr__(level + 1)
         return repr_str
+    
+def get_db_metrics():
+    '''
+    return: dictionary row counts tuples for each table in the database
+    '''
+    return query_row_counts()
 
 def select_and_project(query_dict,source_alias):
 
@@ -256,6 +262,8 @@ query_tree = build_query_tree(query_input_3,join_order)
 
 # Retrieve nodes and edges
 nodes, edges = get_nodes_and_edges(query_tree)
+items=get_db_metrics()
+print(items)
 '''
 # Print the query tree structure
 print("Query Tree Structure:")

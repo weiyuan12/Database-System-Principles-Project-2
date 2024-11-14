@@ -34,13 +34,17 @@ def query_row_counts():
         )
         
         # Iterate through each table and get the row count
+        pg_stats={}
         for table in tables:
             row_count = get_row_count(conn, table)
-            print(f"Table {table} has {row_count} rows.")
+            #print(f"Table {table} has {row_count} rows.")
+            pg_stats[table] = row_count
 
         # Close the connection
         conn.close()
+        return pg_stats
 
     except Exception as e:
         print(f"Error: {e}")
 
+item = query_row_counts()
