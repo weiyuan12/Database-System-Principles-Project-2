@@ -1,4 +1,4 @@
-query_input = {
+query_input_1 = {
     "operation": "SELECT + Join",
     ## Indicates which alisa to project
     "projections": [
@@ -165,5 +165,25 @@ query_input_4={
         {'left': 'C.age', 'operator': '>', 'right': '25', 'alias': 'C'},
         {'left': 'P.price', 'operator': '<', 'right': '100', 'alias': 'P'},
         {'left': 'S.rating', 'operator': '>', 'right': '4', 'alias': 'S'}
+    ]
+}
+
+query_input_5={
+    'operation': 'SELECT',
+    'projections': ['C.name'],
+    'source': [
+        {
+            'table': 'customer',
+            'alias': 'C'
+        }
+    ],
+    'joins': [],
+    'selects': [
+        {
+            'left': 'C.age',
+            'operator': '>',
+            'right': '25',
+            'alias': 'C'
+        }
     ]
 }

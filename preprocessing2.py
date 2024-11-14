@@ -3,7 +3,8 @@ import re
 def parse_tables_from_clause(from_clause):
     '''
     Extract table names and aliases in FROM clause
-    from_clause: The FROM clause of the raw query
+    - from_clause: The FROM clause of the raw query
+    returns: tables (sources)
     '''
     tables = []
     for match in re.finditer(r"(\w+)\s+(\w+)?", from_clause, re.IGNORECASE):
@@ -15,7 +16,8 @@ def parse_tables_from_clause(from_clause):
 def parse_projections(select_clause):
     '''
     Extract columns specified in SELECT
-    select_clause: The SELECT clause of the raw query
+    - select_clause: The SELECT clause of the raw query
+    returns: projections array
     '''
     projections = [col.strip() for col in select_clause.split(",")]
     if '*' in projections:
@@ -25,7 +27,8 @@ def parse_projections(select_clause):
 def parse_conditions(where_clause, tables):
     """
     Parse conditions from the WHERE clause and separate them into joins and selects.
-    tables: List of tables with their aliases
+    - tables: List of tables with their aliases
+    returns: joins, selects array
     """
     joins = []
     selects = []
@@ -66,7 +69,8 @@ def parse_conditions(where_clause, tables):
 def preprocess_query(sql_query):
     '''
     Main functio to preprocess the query
-    sql_query: The SQL query string (assuming it has no aggregation)
+    - sql_query: The SQL query string (assuming it has no aggregation)
+    returns: preprocessed data
     '''
     metadata = {
         "operation": "SELECT",
@@ -139,6 +143,11 @@ if __name__ == "__main__":
     AND C.age > 25
     AND P.price < 100
     AND S.rating > 4
+    '''
+    '''
+    SELECT C.name
+    FROM customer C
+    WHERE C.age > 25;
     '''
     metadata = preprocess_query(sql_query)
     print("Parsed Metadata:", metadata)
