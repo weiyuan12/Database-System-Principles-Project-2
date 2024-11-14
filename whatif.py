@@ -1,5 +1,7 @@
 from example import query_input_1
 from pgconn import query_row_counts
+Tuples={'lineitem': 6001215, 'orders': 1500000, 'part': 200000, 'partsupp': 800000, 'customer': 150000, 'supplier': 10000, 'region': 5, 'nation': 25}
+
 class QueryNode:
     '''
     QueryNode class
@@ -15,6 +17,10 @@ class QueryNode:
         self.value = value 
         self.children = []
         self.alias = []
+        ## This part returns the tuples
+        self.tuples=0
+        self.IO_cost=0
+        self.Q_type=None
         self.id = QueryNode._id_counter
         QueryNode._id_counter += 1
 
@@ -24,8 +30,29 @@ class QueryNode:
     def add_alias(self, alias):
         self.alias.append(alias)
 
+    def set_tuples(self, tuples):
+        self.tuples=tuples
+    
+    def set_IO_cost(self,IO_cost):
+        self.tuples=IO_cost
+
+    def set_Type(self, Q_type):
+        self.type=Q_type
+
     def get_alias(self):
         return self.alias
+    
+    def get_children(self):
+        return self.children
+    
+    def get_tuples(self):
+        return self.tuples
+    
+    def get_IO_cost(self):
+        return self.IO_cost
+    
+    def get_Q_type(self):
+        return self.Q_type
     
     def get_node_type(self):
         return self.node_type
@@ -49,19 +76,19 @@ def get_db_metrics():
     '''
     return query_row_counts()
 
-def select_and_project(query_dict,source_alias):
+def select_and_project(query_dict,source_alias,source_table):
 
     '''
     Select then project a source
     - query_dict: the processed query from preprocessing.py
     - source_alias: the alias of the source to be selected then projected
-    returns: selection node?, projection node?
+    returns: selection node
     '''
-
+    
     #projections = []
     selections = []
     source_node=QueryNode("Source",source_alias)
-    
+    source_node.set_tuples(Tuples.get(source_table) )
     # Check for Selections (range queries)
     selection_node=None
     #projection_node=None
@@ -72,6 +99,7 @@ def select_and_project(query_dict,source_alias):
             selections.append(query_dict["selects"][m]["left"]+query_dict["selects"][m]["operator"]+query_dict["selects"][m]["right"])
             selection_node=QueryNode("Selection",selections)
             selection_node.add_child(source_node)
+
     '''
     
     join_hashmap={}
@@ -114,6 +142,8 @@ def join_tables(query_dict,join_index,current_intermediate_relations):
     # Retrieve the alias of the node to join
     join_alias_1=query_dict["joins"][join_index][0]["alias"]
     join_alias_2=query_dict["joins"][join_index][1]["alias"]
+    join_table_1=query_dict["joins"][join_index][0]["table"]
+    join_table_2=query_dict["joins"][join_index][1]["table"]
     
     # list through intermediate_relations to find a as many possible join nodes that matches the joins, if they exist, join them
     intermediate_relations=[]
@@ -154,18 +184,19 @@ def join_tables(query_dict,join_index,current_intermediate_relations):
     
     # Loop through all sources to find the sources from these joins
     join_aliases=[join_alias_1,join_alias_2]
+    join_tables=[join_table_1,join_table_2]
     for i in range(len(join_aliases)):
         # define the source
         source_alias=join_aliases[i]
-
+        source_table=join_tables[i]
         # Perform selection and projection on the source if there is no checkpoint
         if checkpoint == None or (checkpoint and source_alias not in checkpoint.get_alias()):
             source_node=QueryNode("Source",source_alias)
-            
+            source_node.set_tuples(Tuples.get(source_table) )
             # Check for Selections (range queries)
             '''
             
-            selection_node,projection_node=select_and_project(query_dict,source_alias)
+            selection_node,projection_node=select_and_project(query_dict,source_alias,source_table)
                         
             if projection_node is not None:
                 top_level_sources.append(projection_node)
@@ -174,7 +205,7 @@ def join_tables(query_dict,join_index,current_intermediate_relations):
             else:
                 top_level_sources.append(source_node)
             '''
-            selection_node=select_and_project(query_dict,source_alias)
+            selection_node=select_and_project(query_dict,source_alias,source_table)
                     
             if selection_node is not None:
                 top_level_sources.append(selection_node)
@@ -224,9 +255,9 @@ def build_query_tree(query_dict,join_order):
     # Cond #1 no join
     if(len(query_dict["joins"])==0 and len(query_dict["source"])==1):
         source_alias= query_dict["source"][0]["alias"]
+        source_table= query_dict["source"][0]["table"]
         '''
-     
-        selection_node,projection_node=select_and_project(query_dict,source_alias)
+        selection_node,projection_node=select_and_project(query_dict,source_alias,source_table)
                     
         if projection_node is not None:
             return projection_node
@@ -235,7 +266,7 @@ def build_query_tree(query_dict,join_order):
         else:
             return QueryNode("Source",source_alias)
         '''
-        selection_node=select_and_project(query_dict,source_alias)
+        selection_node=select_and_project(query_dict,source_alias,source_table)
         if selection_node is not None:
             return selection_node
         else:
@@ -260,7 +291,7 @@ def get_nodes_and_edges(node):
 
     # Recurse to collect the nodes
     def traverse(node):
-        nodes.append((node.id, node.node_type, node.value))
+        nodes.append((node.id, node.node_type, node.value, node.IO_cost, node.tuples, node.Q_type))
         for child in node.children:
             edges.append((node.id, child.id))
             traverse(child)
