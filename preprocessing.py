@@ -111,6 +111,8 @@ def preprocess_query(sql_query):
 
     return metadata
 
+
+## WY: Parsing the output from EXPLAIN ANALYSE and Printing the tree top down in commandline (horizontal branches) -> need to be used print out in the gui maybe can store in txt file
 def parse_execution_plan(plan):
     lines = plan.strip().splitlines()
     stack = []  # Stack to manage current position in the tree
