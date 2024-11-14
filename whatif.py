@@ -20,7 +20,7 @@ class QueryNode:
         ## This part returns the tuples
         self.tuples=0
         self.IO_cost=0
-        self.Q_type=None
+        self.Q_type="None"
         self.id = QueryNode._id_counter
         QueryNode._id_counter += 1
 
@@ -36,8 +36,8 @@ class QueryNode:
     def set_IO_cost(self,IO_cost):
         self.tuples=IO_cost
 
-    def set_Type(self, Q_type):
-        self.type=Q_type
+    def set_Q_Type(self, Q_type):
+        self.Q_type=Q_type
 
     def get_alias(self):
         return self.alias
@@ -76,7 +76,7 @@ def get_db_metrics():
     '''
     return query_row_counts()
 
-def select_and_project(query_dict,source_alias,source_table):
+def select_and_project(query_dict,source_alias,source_table,scan_type):
 
     '''
     Select then project a source
@@ -88,7 +88,8 @@ def select_and_project(query_dict,source_alias,source_table):
     #projections = []
     selections = []
     source_node=QueryNode("Source",source_alias)
-    source_node.set_tuples(Tuples.get(source_table) )
+    source_node.set_tuples(Tuples.get(source_table))
+    source_node.set_Q_Type(scan_type)
     # Check for Selections (range queries)
     selection_node=None
     #projection_node=None
@@ -99,6 +100,8 @@ def select_and_project(query_dict,source_alias,source_table):
             selections.append(query_dict["selects"][m]["left"]+query_dict["selects"][m]["operator"]+query_dict["selects"][m]["right"])
             selection_node=QueryNode("Selection",selections)
             selection_node.add_child(source_node)
+            selection_node.set_Q_Type(query_dict["selects"][m]["type"])
+            
 
     '''
     
@@ -160,6 +163,7 @@ def join_tables(query_dict,join_index,current_intermediate_relations):
     if len(intermediate_relations)==2:
         join=join_alias_1 + "." + query_dict["joins"][join_index][0]["on"] + " = " +join_alias_2+ "." +query_dict["joins"][join_index][1]["on"]
         join_node = QueryNode("Join", join)
+        join_node.set_Q_Type(query_dict["joins"][join_index][0]["type"])
         aliases=[]
         for k in intermediate_relations:
             join_node.add_child(k)
@@ -189,10 +193,17 @@ def join_tables(query_dict,join_index,current_intermediate_relations):
         # define the source
         source_alias=join_aliases[i]
         source_table=join_tables[i]
+
+        for x in query_dict["source"]:
+            if x["alias"]==source_alias:
+                source_Q_type=x["type"]
+                break
+            else: source_Q_type = "None"
         # Perform selection and projection on the source if there is no checkpoint
         if checkpoint == None or (checkpoint and source_alias not in checkpoint.get_alias()):
             source_node=QueryNode("Source",source_alias)
-            source_node.set_tuples(Tuples.get(source_table) )
+            source_node.set_tuples(Tuples.get(source_table))
+            source_node.set_Q_Type(source_Q_type)
             # Check for Selections (range queries)
             '''
             
@@ -205,7 +216,7 @@ def join_tables(query_dict,join_index,current_intermediate_relations):
             else:
                 top_level_sources.append(source_node)
             '''
-            selection_node=select_and_project(query_dict,source_alias,source_table)
+            selection_node=select_and_project(query_dict,source_alias,source_table,source_Q_type)
                     
             if selection_node is not None:
                 top_level_sources.append(selection_node)
@@ -215,10 +226,11 @@ def join_tables(query_dict,join_index,current_intermediate_relations):
     if(source_alias==join_alias_1):
         join=join_alias_1 + "." + query_dict["joins"][join_index][0]["on"] + " = " +join_alias_2+ "." +query_dict["joins"][join_index][1]["on"]
         join_node = QueryNode("Join", join)
-
+        join_node.set_Q_Type(query_dict["joins"][join_index][0]["type"])
     elif(source_alias==join_alias_2):
         join=join_alias_1 + "." + query_dict["joins"][join_index][0]["on"] + " = " +join_alias_2+ "." +query_dict["joins"][join_index][1]["on"]
         join_node = QueryNode("Join", join)
+        join_node.set_Q_Type(query_dict["joins"][join_index][0]["type"])
 
     for k in top_level_sources:
         join_node.add_child(k)
@@ -256,8 +268,9 @@ def build_query_tree(query_dict,join_order):
     if(len(query_dict["joins"])==0 and len(query_dict["source"])==1):
         source_alias= query_dict["source"][0]["alias"]
         source_table= query_dict["source"][0]["table"]
+        source_Q_type=query_dict["source"][0]["type"]
         '''
-        selection_node,projection_node=select_and_project(query_dict,source_alias,source_table)
+        selection_node,projection_node=select_and_project(query_dict,source_alias,source_table,source_Q_type)
                     
         if projection_node is not None:
             return projection_node
@@ -266,7 +279,7 @@ def build_query_tree(query_dict,join_order):
         else:
             return QueryNode("Source",source_alias)
         '''
-        selection_node=select_and_project(query_dict,source_alias,source_table)
+        selection_node=select_and_project(query_dict,source_alias,source_table,source_Q_type)
         if selection_node is not None:
             return selection_node
         else:
