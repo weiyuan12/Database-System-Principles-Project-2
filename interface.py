@@ -1,19 +1,17 @@
 import tkinter as tk
 from tkinter import ttk
-from whatif import get_nodes_and_edges, build_query_tree
-from example import query_input_1
-import json
+from whatif import get_nodes_and_edges, build_query_tree,total_IO_cost
+from constants import query_input_1
 #{'lineitem': 6001215, 'orders': 1500000, 'part': 200000, 'partsupp': 800000, 'customer': 150000, 'supplier': 10000, 'region': 5, 'nation': 25}
 
 
-
-
 class TreeVisualizer:
-    def __init__(self, root,query_dict):
+    def __init__(self, root,query_dict,use_dict_IO_tuples):
         self.root = root
         self.nodes = None
         self.edges = None
         self.query_dict = query_dict
+        self.use_dict_IO_tuples=use_dict_IO_tuples
         self.join_order = list(range(len(query_dict["joins"])))
         # Set the default window size to 700x500
         self.root.geometry("1000x1000")
@@ -40,15 +38,16 @@ class TreeVisualizer:
         self.options_frame = tk.Frame(root, bg="lightgray", pady=10)
         self.options_frame.pack(fill=tk.X)
         self.create_option_buttons(self.options_frame)  # Only create options once
-
         self.node_positions = {}
         # Initial run to display the tree
+        self.create_join_buttons()
         self.run()
 
     def create_tree_visualization(self):
         self.canvas.delete("all")
-        query_tree = build_query_tree(self.query_dict, self.join_order)
+        query_tree = build_query_tree(self.query_dict, self.join_order,self.use_dict_IO_tuples)
         self.nodes, self.edges = get_nodes_and_edges(query_tree)
+        
         # Draw the root node
         start_x = 500
         start_y = 50
@@ -60,6 +59,45 @@ class TreeVisualizer:
             child_pos = self.node_positions[child_id]
             self.canvas.create_line(child_pos[0], child_pos[1] - 30,
                                     parent_pos[0], parent_pos[1] + 30, arrow=tk.LAST)
+        # Add the statistics
+        tree_IO_cost=total_IO_cost(query_tree)
+        est_tuples = 0
+        actual_tuples = 0
+        # Remove old bottom label if it exists
+        if hasattr(self, 'bottom_label') and self.bottom_label.winfo_exists():
+            self.bottom_label.destroy()
+
+        # Add the updated statistics as a new label
+        self.bottom_label = tk.Label(
+            self.options_frame,
+            text=f"Total IO cost: {tree_IO_cost} \nEstimated tuples: {est_tuples}",
+            anchor="w",
+            bg="lightgray",
+            font=("Arial", 10)
+        )
+        self.bottom_label.pack(fill=tk.X, padx=5, pady=5)
+    def create_join_buttons(self):
+        """Create buttons to change join types."""
+        for idx, join in enumerate(self.query_dict["joins"]):
+            join_label = f"Join {join[0]['table']}={join[1]['table']}"
+            btn = tk.Button(
+                self.options_frame,
+                text=join_label,
+                command=lambda i=idx: self.update_join_type(i),
+                padx=5
+            )
+            btn.pack(side=tk.LEFT, padx=5, pady=5)
+
+    def update_join_type(self, join_index):
+        """Toggle the join type for the selected join."""
+        current_join = self.query_dict["joins"][join_index]
+        for join in current_join:
+            # Toggle between join types (Hash and Nested Loop as an example)
+            if join["type"] == "Hash Join":
+                join["type"] = "Nested Loop"
+            elif join["type"] == "Nested Loop":
+                join["type"] = "Hash Join"
+        self.run()
 
     def draw_node(self, node, x, y, level=0):
         node_id, node_type, value, IO_cost,tuples,Q_type = node
@@ -139,15 +177,12 @@ class TreeVisualizer:
         self.run()
     def run(self):
         """Runs the visualization setup and updates tree visualization."""
-        # Rotate the join order and rebuild the visualization
         self.create_tree_visualization()
 
+    
 
 # Set up the Tkinter window and visualize the tree
-root = tk.Tk()
-root.title("Query Tree Visualization")
-with open("query_plan_structured.json", "r") as f:
-    query = json.load(f)
-# visualizer = TreeVisualizer(root, query_input_1)
-visualizer = TreeVisualizer(root, query)
-root.mainloop()
+#root = tk.Tk()
+#root.title("Query Tree Visualization")
+#visualizer = TreeVisualizer(root, query_input_1)
+#root.mainloop()

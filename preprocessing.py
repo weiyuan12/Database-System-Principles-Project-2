@@ -1,7 +1,8 @@
 import re
 from pgconn import query_row_counts,get_execution_plan
-from example import query_input_1
+from constants import query_input_1
 import json
+from constants import JOINS,SCANS,FILTERS
 def parse_tables_from_clause(from_clause):
     '''
     Extract table names and aliases in FROM clause
@@ -65,7 +66,7 @@ def parse_conditions(where_clause, tables):
                 "operator": operator,
                 "right": right_side,
                 "alias": alias,
-                'type': 'Seq Scan'
+                'type': SCANS[0]
             })
     return joins, selects
 
@@ -120,19 +121,28 @@ def parse_execution_plan(plan):
     node = None  # Current node being processed
     
     for line in lines:
+        condition = None
+        node_type=None
         indent_level = len(line) - len(line.lstrip())  # Calculate the level of indentation
-
         # Check for Hash Joins, Seq Scans, etc., and create nodes
-        if 'Hash Join' in line or 'Seq Scan' in line or 'Nested Loop' in line:
-            node_type = 'Hash Join' if 'Hash Join' in line else 'Seq Scan' if 'Seq Scan' in line else 'Other'
+        for join in JOINS:
+            if join in line:
+                node_type = join
+                break
+        if node_type is None:
+            for scan in SCANS:
+                if scan in line
+                    node_type = scan
+                    break
+        
+        if node_type is not None:
             details = line.strip()
-
             new_node = {
                 'type': node_type,
                 'details': details,
                 'children': []
             }
-            
+           
             if indent_level == 0:
                 root = new_node
             else:
@@ -140,20 +150,21 @@ def parse_execution_plan(plan):
                     stack[-1]['children'].append(new_node)
             
             stack.append(new_node)
-
-        # Handling filters or conditions
-        elif 'Filter' in line or 'Hash Cond' in line:
-            condition = line.split(":")[1].strip()
-            if stack:
-                stack[-1].setdefault('conditions', []).append(condition)
-
+        
+        elif node_type is None:
+            # Handling filters or conditions
+            for filter in FILTERS:
+                if filter in line:
+                    print(filter)
+                    condition = line.split(":")[1].strip()
+                    if stack:
+                        stack[-1].setdefault('conditions', []).append(condition)
+                    break
         # When moving up the tree (end of a node)
-        elif line.strip() == "" or '->' in line:
+        elif line.strip() == "" or '->' in line and condition is None:
             stack.pop()
 
     return root
-
-
 def print_tree(node, indent="", is_last=True, is_root=True):
     if not node:
         return
@@ -219,6 +230,17 @@ def save_tree_to_file(node, filename, indent="", is_last=True, is_root=True, fil
     # Close the file if this is the root call
     if is_root:
         file.close()
+def extract_cost_and_rows(details):
+    """Extract cost and rows from the node details."""
+    import re
+    
+    # Match patterns like "cost=529.08..92821.79 rows=49132944"
+    match = re.search(r'cost=([\d.]+)\.\.([\d.]+) rows=(\d+)', details)
+    if match:
+        io_cost = float(match.group(1))  # Extract initial cost
+        tuples_returned = int(match.group(3))  # Extract rows
+        return io_cost, tuples_returned
+    return None, None
 
 def extract_table_info(details):
     """Extract table name and alias from node details"""
@@ -269,15 +291,17 @@ def parse_execution_plan_to_dict(plan):
     def traverse_tree(node):
         if not node:
             return
-        
+        io_cost, tuples_returned = extract_cost_and_rows(node['details'])
         # Handle Seq Scan nodes (source tables)
-        if node['type'] == 'Seq Scan':
+        if node['type'] in SCANS:
             table, alias = extract_table_info(node['details'])
             if table:
                 source_info = {
                     'table': table,
                     'alias': alias,
-                    'type': 'Seq Scan'
+                    'type': node['type'],
+                    'IO_cost': io_cost,
+                    'tuples': tuples_returned
                 }
                 result['source'].append(source_info)
             
@@ -298,12 +322,15 @@ def parse_execution_plan_to_dict(plan):
                                 'operator': '>',  # You might want to detect the actual operator
                                 'right': right.strip().replace("'", ""),
                                 'alias': alias,
-                                'type': 'Seq Scan'
+                                'type': node['type'],
+                                'IO_cost': io_cost,
+                                'tuples': tuples_returned
                             }
                             result['selects'].append(select_info)
         
-        # Handle Hash Join nodes
-        elif node['type'] == 'Hash Join':
+        # Handle Join nodes
+        elif node['type'] in JOINS:
+            io_cost, tuples_returned = extract_cost_and_rows(node['details'])
             if 'conditions' in node:
                 for condition in node['conditions']:
                     left_alias, left_col, right_alias, right_col = extract_join_condition(condition)
@@ -314,14 +341,18 @@ def parse_execution_plan_to_dict(plan):
                                              if s['alias'] == left_alias), left_alias),
                                 'alias': left_alias,
                                 'on': left_col,
-                                'type': 'Hash'
+                                'type': node['type'],
+                                'IO_cost': io_cost,
+                                'tuples': tuples_returned
                             },
                             {
                                 'table': next((s['table'] for s in result['source'] 
                                              if s['alias'] == right_alias), right_alias),
                                 'alias': right_alias,
                                 'on': right_col,
-                                'type': 'Hash'
+                                'type': node['type'],
+                                'IO_cost': io_cost,
+                                'tuples': tuples_returned
                             }
                         ]
                         result['joins'].append(join_info)
@@ -447,11 +478,13 @@ if __name__ == "__main__":
     #print("Parsed Metadata:", metadata)
    
 
-    # plan=get_execution_plan(sql_query)
-    # print(plan)
-    # tree = parse_execution_plan(plan)
-    # print_tree(tree)
+    #plan = get_execution_plan(sql_query)
+    #print(plan)
+    #tree = parse_execution_plan(plan)
+
     tree, structured_format = process_query_plan_full(sql_query)
+    print_tree(tree)
+    print(structured_format)
     print(json.dumps(structured_format, indent=2))
 
    
