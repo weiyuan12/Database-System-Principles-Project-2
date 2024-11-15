@@ -124,7 +124,11 @@ def select_and_project(query_dict,source_alias,source_table,scan_type,use_dict_I
             selection_node=QueryNode("Selection",selections)
             selection_node.add_child(source_node)
             selection_node.set_Q_Type(query_dict["selects"][m]["type"])
-            
+            if use_dict_IO_tuples:
+                selection_node.set_tuples(query_dict["selects"][m]["tuples"])
+                selection_node.set_IO_cost(query_dict["selects"][m]["IO_cost"])
+            else:
+                print("TBD this calc")
 
     '''
     
