@@ -1,5 +1,5 @@
 import re
-from pgconn import query_row_counts,get_execution_plan
+from pgconn import PgConn
 from example import query_input_1
 import re
 def parse_tables_from_clause(from_clause):
@@ -271,8 +271,8 @@ if __name__ == "__main__":
     #metadata = preprocess_query(sql_query)
     #print("Parsed Metadata:", metadata)
    
-
-    plan=get_execution_plan(sql_query)
+    pgconn = PgConn()
+    plan=pgconn.get_execution_plan(sql_query)
     print(plan)
     tree = parse_execution_plan(plan)
     print_tree(tree)

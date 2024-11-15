@@ -1,5 +1,5 @@
 from example import query_input_1,query_input_2,query_input_3
-from pgconn import query_row_counts
+from pgconn import PgConn
 Tuples={'lineitem': 6001215, 'orders': 1500000, 'part': 200000, 'partsupp': 800000, 'customer': 150000, 'supplier': 10000, 'region': 5, 'nation': 25}
 
 class QueryNode:
@@ -125,7 +125,6 @@ def get_db_metrics():
     '''
 
     pgconn = PgConn()
-    print(pgconn.query_row_counts())
 
     return pgconn.query_row_counts()
 
