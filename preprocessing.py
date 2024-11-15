@@ -155,7 +155,6 @@ def parse_execution_plan(plan):
             # Handling filters or conditions
             for filter in FILTERS:
                 if filter in line:
-                    print(filter)
                     condition = line.split(":")[1].strip()
                     if stack:
                         stack[-1].setdefault('conditions', []).append(condition)
