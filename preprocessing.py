@@ -196,6 +196,48 @@ if __name__ == "__main__":
     AND C.c_acctbal > 1000
     """
 
+    '''
+    SELECT o.o_orderkey, o.o_orderdate, c.c_name, n.n_name AS nation, r.r_name AS region
+    FROM orders o, customer c, nation n, region r
+    WHERE o.o_custkey = c.c_custkey
+    AND c.c_nationkey = n.n_nationkey
+    AND n.n_regionkey = r.r_regionkey
+    AND C.age > 25;    
+    '''
+
+    '''
+    SELECT 
+        c.c_name AS customer_name,
+        o.o_orderkey AS order_id,
+        o.o_orderdate AS order_date,
+        p.p_name AS part_name,
+        s.s_name AS supplier_name,
+        n.n_name AS nation_name,
+        r.r_name AS region_name,
+        l.l_quantity AS quantity,
+        l.l_extendedprice AS extended_price
+    FROM 
+        customer c,
+        orders o,
+        lineitem l,
+        part p,
+        partsupp ps,
+        supplier s,
+        nation n,
+        region r
+    WHERE 
+        c.c_custkey = o.o_custkey
+        AND o.o_orderkey = l.l_orderkey
+        AND l.l_partkey = p.p_partkey
+        AND l.l_suppkey = s.s_suppkey
+        AND p.p_partkey = ps.ps_partkey
+        AND ps.ps_suppkey = s.s_suppkey
+        AND c.c_nationkey = n.n_nationkey
+        AND s.s_nationkey = n.n_nationkey
+        AND n.n_regionkey = r.r_regionkey;
+        AND P.price < 1000
+        AND S.rating > 4 
+    '''
     
     
     '''
