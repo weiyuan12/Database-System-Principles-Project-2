@@ -131,7 +131,7 @@ def parse_execution_plan(plan):
                 break
         if node_type is None:
             for scan in SCANS:
-                if scan in line
+                if scan in line:
                     node_type = scan
                     break
         
