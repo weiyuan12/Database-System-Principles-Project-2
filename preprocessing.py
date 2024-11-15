@@ -1,7 +1,7 @@
 import re
 from pgconn import query_row_counts,get_execution_plan
 from example import query_input_1
-import re
+import json
 def parse_tables_from_clause(from_clause):
     '''
     Extract table names and aliases in FROM clause
@@ -177,6 +177,181 @@ def print_tree(node, indent="", is_last=True, is_root=True):
     for i, child in enumerate(node.get('children', [])):
         is_last_child = i == num_children - 1
         print_tree(child, indent + ("    " if not is_last else " "), is_last_child, is_root=False)
+
+def save_tree_to_file(node, filename, indent="", is_last=True, is_root=True, file=None):
+    if not node:
+        return
+    
+    # Create or append to file if this is the root call
+    if is_root:
+        file = open(filename, 'w', encoding='utf-8')
+    
+    # Prefix for child nodes
+    child_prefix = "└──" if is_last else "├──"
+    connection = "    " if is_last else "│   "
+    
+    # Construct the line for the current node
+    if is_root:
+        file.write(f"{node['type']}: {node['details']}\n")
+    else:
+        file.write(f"{indent}{child_prefix} {node['type']}: {node['details']}\n")
+
+    # Write filter conditions if any
+    if 'conditions' in node:
+        for i, cond in enumerate(node['conditions']):
+            is_last_condition = i == len(node['conditions']) - 1
+            condition_prefix = "    │" if not is_last_condition or node.get('children') else "    └"
+            file.write(f"{indent}{connection}{condition_prefix} Filter: {cond}\n")
+    
+    # Recursively write the children (if any)
+    children = node.get('children', [])
+    for i, child in enumerate(children):
+        is_last_child = i == len(children) - 1
+        save_tree_to_file(
+            child, 
+            filename, 
+            indent + connection, 
+            is_last_child, 
+            is_root=False, 
+            file=file
+        )
+    
+    # Close the file if this is the root call
+    if is_root:
+        file.close()
+
+def extract_table_info(details):
+    """Extract table name and alias from node details"""
+    import re
+    
+    # Match pattern like "Seq Scan on customer c" or "Seq Scan on customer"
+    match = re.search(r'(?:Seq Scan|Hash Join) on (\w+)(?:\s+(\w+))?', details)
+    if match:
+        table = match.group(1)
+        alias = match.group(2) if match.group(2) else table[0]  # Use first letter as alias if not specified
+        return table, alias
+    return None, None
+
+def extract_join_condition(condition):
+    """Extract table aliases and columns from join conditions"""
+    if not condition:
+        return None, None, None, None
+    
+    # Remove parentheses and split on equals
+    condition = condition.replace('(', '').replace(')', '')
+    left, right = condition.split('=')
+    
+    # Extract table alias and column for left side
+    left = left.strip()
+    left_parts = left.split('.')
+    left_alias = left_parts[0].strip()
+    left_col = left_parts[1].strip()
+    
+    # Extract table alias and column for right side
+    right = right.strip()
+    right_parts = right.split('.')
+    right_alias = right_parts[0].strip()
+    right_col = right_parts[1].strip()
+    
+    return left_alias, left_col, right_alias, right_col
+
+def parse_execution_plan_to_dict(plan):
+    """Parse execution plan and convert to structured dictionary format"""
+    tree = parse_execution_plan(plan)  # Using your existing parser
+    
+    result = {
+        'operation': 'SELECT + Join',
+        'source': [],
+        'joins': [],
+        'selects': []
+    }
+    
+    def traverse_tree(node):
+        if not node:
+            return
+        
+        # Handle Seq Scan nodes (source tables)
+        if node['type'] == 'Seq Scan':
+            table, alias = extract_table_info(node['details'])
+            if table:
+                source_info = {
+                    'table': table,
+                    'alias': alias,
+                    'type': 'Seq Scan'
+                }
+                result['source'].append(source_info)
+            
+            # Handle filter conditions for selects
+            if 'conditions' in node:
+                for condition in node['conditions']:
+                    if '>' in condition or '<' in condition or '=' in condition:
+                        parts = condition.split('>')
+                        if len(parts) != 2:
+                            parts = condition.split('<')
+                        if len(parts) != 2:
+                            parts = condition.split('=')
+                        
+                        if len(parts) == 2:
+                            left, right = parts
+                            select_info = {
+                                'left': left.strip(),
+                                'operator': '>',  # You might want to detect the actual operator
+                                'right': right.strip().replace("'", ""),
+                                'alias': alias,
+                                'type': 'Seq Scan'
+                            }
+                            result['selects'].append(select_info)
+        
+        # Handle Hash Join nodes
+        elif node['type'] == 'Hash Join':
+            if 'conditions' in node:
+                for condition in node['conditions']:
+                    left_alias, left_col, right_alias, right_col = extract_join_condition(condition)
+                    if left_alias and right_alias:
+                        join_info = [
+                            {
+                                'table': next((s['table'] for s in result['source'] 
+                                             if s['alias'] == left_alias), left_alias),
+                                'alias': left_alias,
+                                'on': left_col,
+                                'type': 'Hash'
+                            },
+                            {
+                                'table': next((s['table'] for s in result['source'] 
+                                             if s['alias'] == right_alias), right_alias),
+                                'alias': right_alias,
+                                'on': right_col,
+                                'type': 'Hash'
+                            }
+                        ]
+                        result['joins'].append(join_info)
+        
+        # Traverse children
+        for child in node.get('children', []):
+            traverse_tree(child)
+    
+    traverse_tree(tree)
+    return result
+
+def process_query_plan_full(sql_query):
+    """Process query plan and return both tree visualization and structured format"""
+    plan = get_execution_plan(sql_query)
+    
+    # Generate tree visualization
+    tree = parse_execution_plan(plan)
+
+    with open("original_plan.txt", "w", encoding='utf-8') as f:
+        f.write(plan)
+    save_tree_to_file(tree, "query_plan_tree.txt")
+    
+    # Generate structured dictionary format
+    structured_format = parse_execution_plan_to_dict(plan)
+    
+    # Save structured format to file
+    with open("query_plan_structured.json", "w", encoding='utf-8') as f:
+        json.dump(structured_format, f, indent=2)
+    
+    return tree, structured_format
     
 # Example usage
 if __name__ == "__main__":
@@ -272,10 +447,12 @@ if __name__ == "__main__":
     #print("Parsed Metadata:", metadata)
    
 
-    plan=get_execution_plan(sql_query)
-    print(plan)
-    tree = parse_execution_plan(plan)
-    print_tree(tree)
+    # plan=get_execution_plan(sql_query)
+    # print(plan)
+    # tree = parse_execution_plan(plan)
+    # print_tree(tree)
+    tree, structured_format = process_query_plan_full(sql_query)
+    print(json.dumps(structured_format, indent=2))
 
    
 # Example EXPLAIN output and SELECT clause

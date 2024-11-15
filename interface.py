@@ -2,7 +2,10 @@ import tkinter as tk
 from tkinter import ttk
 from whatif import get_nodes_and_edges, build_query_tree
 from example import query_input_1
+import json
 #{'lineitem': 6001215, 'orders': 1500000, 'part': 200000, 'partsupp': 800000, 'customer': 150000, 'supplier': 10000, 'region': 5, 'nation': 25}
+
+
 
 
 class TreeVisualizer:
@@ -143,5 +146,8 @@ class TreeVisualizer:
 # Set up the Tkinter window and visualize the tree
 root = tk.Tk()
 root.title("Query Tree Visualization")
-visualizer = TreeVisualizer(root, query_input_1)
+with open("query_plan_structured.json", "r") as f:
+    query = json.load(f)
+# visualizer = TreeVisualizer(root, query_input_1)
+visualizer = TreeVisualizer(root, query)
 root.mainloop()
