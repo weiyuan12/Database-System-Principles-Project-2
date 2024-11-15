@@ -53,7 +53,38 @@ class PgConn(object):
             cur.execute(f"SELECT relpages FROM pg_class WHERE relname = '{table}'")
             result = cur.fetchone()
             count = result[0] if result else None
+            if count == 0:
+                cur.execute(f"SELECT COUNT(*) FROM {table}")
+                count = cur.fetchone()[0]
+                if count>0: return 1
             return count
+        
+    def explain_simple_join(self, table1, table2, key1, key2):
+        format_test = """
+        EXPLAIN ANALYZE
+        SELECT *
+        FROM {table1}
+        JOIN {table2} ON {table1}.{key1} = {table2}.{key2};
+        """
+        query = format_test.format(table1=table1, table2=table2, key1=key1, key2=key2)
+        with self.conn.cursor() as cur:
+            cur.execute(query)
+            result = cur.fetchall()
+            return result
+        
+    def get_execution_plan(self, query):
+        try:
+            with self.conn.cursor() as cur:
+                # Use EXPLAIN to get the execution plan
+                cur.execute(f"EXPLAIN ANALYZE {query}")
+                # Fetch all lines of the plan
+                plan = cur.fetchall()
+                # Join the plan lines into a single string for easy viewing
+                execution_plan = "\n".join([line[0] for line in plan])
+                return execution_plan
+        except Exception as e:
+            print(f"Error: {e}")
+
 
 # Function to get the number of rows in a table
 def get_row_count(conn, table):
@@ -101,3 +132,6 @@ if __name__ == "__main__":
         print(f"Table {table} has {pgconn.get_no_blocks(table)} blocks.")
 
     print("Table invalid_name has", pgconn.get_no_blocks("invalid_name"), "blocks.")
+
+    print("simple join plan:", pgconn.explain_simple_join("lineitem", "orders", "l_orderkey", "o_orderkey"))
+    print("Execution plan for simple join:", pgconn.get_execution_plan("SELECT * FROM lineitem JOIN orders ON lineitem.l_orderkey = orders.o_orderkey"))

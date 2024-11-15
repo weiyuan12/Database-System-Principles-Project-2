@@ -36,6 +36,56 @@ class QueryNode:
             repr_str += child.__repr__(level + 1)
         return repr_str
     
+def get_estimated_cost(left, right):
+    '''
+    Get the estimated cost of the join
+    - left, right: a dict with table properties
+        - block_count: the number of blocks
+        - tuples_count: the number of tuples
+        - is_sorted: whether the table is sorted (optional)
+        - unique_value_count: the number of unique values (optional)
+    returns: a array of estimated costs
+    - types of joins: SMJ, HJ, NLJ, 
+    '''
+
+    results = []
+    # Nested Loop Join
+    lower_block_count = min(left['block_count'], right['block_count'])
+    higher_block_count = max(left['block_count'], right['block_count'])
+    results.append({
+        'join': 'NLJ',
+        'cost': lower_block_count + lower_block_count * higher_block_count
+    })
+
+    # Sort Merge Join
+    if left.get('is_sorted') and right.get('is_sorted'):
+        results.append({
+            'join': 'SMJ',
+            'cost': left['block_count'] + right['block_count']
+        })
+    elif left.get('is_sorted'):
+        results.append({
+            'join': 'SMJ',
+            'cost': left['block_count'] + 3*right['block_count']
+        })
+    elif right.get('is_sorted'):
+        results.append({
+            'join': 'SMJ',
+            'cost': right['block_count'] + 3*left['block_count']
+        })
+    else:
+        results.append({
+            'join': 'SMJ',
+            'cost': left['block_count'] + right['block_count']
+        })
+
+    # Hash Join
+    results.append({
+        'join': 'HJ',
+        'cost': 3 * left['block_count'] + 3 * right['block_count']
+    })
+    return 0
+
 def get_db_metrics():
     '''
     Greg implement here:
@@ -46,9 +96,6 @@ def get_db_metrics():
     cost:0
     }
     '''
-
-    def get_estimated_cost():
-        pass
 
     pgconn = PgConn()
     print(pgconn.query_row_counts())
