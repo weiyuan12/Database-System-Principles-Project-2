@@ -1,11 +1,9 @@
 import tkinter as tk
 from tkinter import ttk
 from whatif import get_nodes_and_edges, build_query_tree
-from example import query_input_1, query_input_2, query_input_3, query_input_4,query_input_5
+from example import query_input_1
 #{'lineitem': 6001215, 'orders': 1500000, 'part': 200000, 'partsupp': 800000, 'customer': 150000, 'supplier': 10000, 'region': 5, 'nation': 25}
-'''
 
-'''
 
 class TreeVisualizer:
     def __init__(self, root,query_dict):
@@ -57,12 +55,13 @@ class TreeVisualizer:
             parent_id, child_id = edge
             parent_pos = self.node_positions[parent_id]
             child_pos = self.node_positions[child_id]
-            self.canvas.create_line(child_pos[0], child_pos[1] - 15,
-                                    parent_pos[0], parent_pos[1] + 15, arrow=tk.LAST)
+            self.canvas.create_line(child_pos[0], child_pos[1] - 30,
+                                    parent_pos[0], parent_pos[1] + 30, arrow=tk.LAST)
 
     def draw_node(self, node, x, y, level=0):
-        node_id, node_type, value = node
-        text = f"{node_type}: {value}"
+        node_id, node_type, value, IO_cost,tuples,Q_type = node
+        
+        text = f"{node_type}: {value}\n IO: {IO_cost}, Tup:{tuples} \n Type: {Q_type}"
         # each node is represented by rectangle
 
         text_width=150
@@ -144,5 +143,5 @@ class TreeVisualizer:
 # Set up the Tkinter window and visualize the tree
 root = tk.Tk()
 root.title("Query Tree Visualization")
-visualizer = TreeVisualizer(root, query_input_4)
+visualizer = TreeVisualizer(root, query_input_1)
 root.mainloop()
