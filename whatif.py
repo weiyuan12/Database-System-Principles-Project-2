@@ -35,7 +35,7 @@ class QueryNode:
         self.tuples=tuples
     
     def set_IO_cost(self,IO_cost):
-        self.tuples=IO_cost
+        self.IO_cost=IO_cost
 
     def set_Q_Type(self, Q_type):
         self.Q_type=Q_type
@@ -160,6 +160,7 @@ def join_tables(query_dict,join_index,current_intermediate_relations,use_dict_IO
     - query_dict: the processed query from preprocessing.py
     - join_index: the index of the join to be performed in the query_dict
     - intermediate_relations: the array of checkpoint nodes (intermediate relations)
+    - use_dict_IO_tuples: whether to use the dictionary of IO costs and tuples
     returns: a new root, current set of intermediate relations
     '''
     # Build the tree bottom up (start with the source) (On^2)
@@ -194,8 +195,14 @@ def join_tables(query_dict,join_index,current_intermediate_relations,use_dict_IO
             aliases=aliases+k.get_alias()
         print(aliases)
         join_node.add_alias(aliases)
+        if use_dict_IO_tuples:
+            join_node.set_tuples(query_dict["joins"][join_index][0]["tuples"])
+            join_node.set_IO_cost(query_dict["joins"][join_index][0]["IO_cost"])
+        else:
+            print("TBD this calc")
         root=join_node
         updated_intermediate_relations.append(root)
+        
         return root,updated_intermediate_relations
     
     # 2. Logic for joining 1 or 0 intermediate relations with a source/selectiion relation
@@ -287,7 +294,11 @@ def join_tables(query_dict,join_index,current_intermediate_relations,use_dict_IO
     else:
         join_node.add_alias(join_alias_1)
         join_node.add_alias(join_alias_2)
-    
+    if use_dict_IO_tuples:
+        join_node.set_tuples(query_dict["joins"][join_index][0]["tuples"])
+        join_node.set_IO_cost(query_dict["joins"][join_index][0]["IO_cost"])
+    else:
+        print("TBD this calc")
     root=join_node
     updated_intermediate_relations.append(root)
     return root,updated_intermediate_relations
