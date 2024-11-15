@@ -1,5 +1,5 @@
 from example import query_input_1,query_input_2,query_input_3
-from pgconn import query_row_counts
+from pgconn import PgConn
 class QueryNode:
     '''
     QueryNode class
@@ -45,9 +45,18 @@ def get_db_metrics():
     type:"string"
     cost:0
     }
-
     '''
-    return query_row_counts()
+
+    def get_estimated_cost():
+        pass
+
+    pgconn = PgConn()
+    print(pgconn.query_row_counts())
+
+    return pgconn.query_row_counts()
+
+if __name__ == "__main__":
+    get_db_metrics()
 
 def select_and_project(query_dict,source_alias):
 
