@@ -51,8 +51,8 @@ def parse_conditions(where_clause, tables):
             right_alias, right_column = right_side.split(".")
             
             join_pair = [
-                {"table": next(t["table"] for t in tables if t["alias"] == left_alias), "alias": left_alias, "on": left_column,"type":"Hash"},
-                {"table": next(t["table"] for t in tables if t["alias"] == right_alias), "alias": right_alias, "on": right_column,"type":"Hash"}
+                {"table": next(t["table"] for t in tables if t["alias"] == left_alias), "alias": left_alias, "on": left_column,"type":JOINS[0]},
+                {"table": next(t["table"] for t in tables if t["alias"] == right_alias), "alias": right_alias, "on": right_column,"type":JOINS[0]}
             ]
             joins.append(join_pair)
         else:
