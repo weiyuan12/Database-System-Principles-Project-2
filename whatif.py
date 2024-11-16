@@ -65,20 +65,6 @@ class QueryNode:
         for child in self.children:
             repr_str += child.__repr__(level + 1)
         return repr_str
-    
-def get_db_metrics():
-    '''
-    Greg implement here:
-    - select (index) 0,1,2 type of join
-    - return: {
-    join:""
-    type:"string"
-    cost:0
-    }
-
-    '''
-    return query_row_counts()
-
 def set_source_IO(query_dict_itm,table_name):
     '''
     query_dict_itm-> the object from the query dict
