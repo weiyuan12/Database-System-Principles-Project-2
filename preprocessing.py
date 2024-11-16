@@ -121,38 +121,41 @@ def parse_execution_plan(plan):
     
     for line in lines:
         indent_level = len(line) - len(line.lstrip())  # Calculate the level of indentation
-
+        node_types = ['Hash Join', 'Seq Scan', 'Nested Loop', 'Parallel', 'Index Only Scan', 'Index Scan', "Parallel Hash Join"]
+        filters = ['Filter', 'Hash Cond', 'Index Cond']
+        filter_flag = 0
+        node_flag = 0
         # Check for Hash Joins, Seq Scans, etc., and create nodes
-        if 'Hash Join' in line or 'Seq Scan' in line or 'Nested Loop' in line:
-            node_type = 'Hash Join' if 'Hash Join' in line else 'Seq Scan' if 'Seq Scan' in line else 'Other'
-            details = line.strip()
+        for node_type in node_types:
+            if node_type in line:
+                node_flag = 1
+                details = line.strip()
 
-            new_node = {
-                'type': node_type,
-                'details': details,
-                'children': []
-            }
-            
-            if indent_level == 0:
-                root = new_node
-            else:
-                if stack:
+                new_node = {
+                    'type': node_type,
+                    'details': details,
+                    'children': []
+                }
+                
+                if root is None:
+                    root = new_node
+                elif stack:
                     stack[-1]['children'].append(new_node)
-            
-            stack.append(new_node)
+                
+                stack.append(new_node)
 
-        # Handling filters or conditions
-        elif 'Filter' in line or 'Hash Cond' in line:
-            condition = line.split(":")[1].strip()
-            if stack:
-                stack[-1].setdefault('conditions', []).append(condition)
+        for filter in filters:
+            if filter in line:
+                filter_flag = 1
+                condition = line.split(":")[1].strip()
+                if stack:
+                    stack[-1].setdefault('conditions', []).append(condition)
 
         # When moving up the tree (end of a node)
-        elif line.strip() == "" or '->' in line:
+        if line.strip() == "" or '->' in line and node_flag == 0 and filter_flag == 0 :
             stack.pop()
-
+    
     return root
-
 
 def print_tree(node, indent="", is_last=True, is_root=True):
     if not node:
@@ -224,40 +227,71 @@ def extract_table_info(details):
     """Extract table name and alias from node details"""
     import re
     
-    # Match pattern like "Seq Scan on customer c" or "Seq Scan on customer"
-    match = re.search(r'(?:Seq Scan|Hash Join) on (\w+)(?:\s+(\w+))?', details)
-    if match:
-        table = match.group(1)
-        alias = match.group(2) if match.group(2) else table[0]  # Use first letter as alias if not specified
-        return table, alias
+    patterns = [
+        r'(?:Index Scan using \w+ on|Index Only Scan using \w+ on|Seq Scan on|Hash Join on) (\w+)(?:\s+(\w+))?',
+        r'Index Scan.*?on (\w+)(?:\s+(\w+))?'
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, details)
+        if match:
+            table = match.group(1)
+            alias = match.group(2) if match.group(2) else table[0]
+            return table, alias
     return None, None
+
+def is_join_condition(condition):
+    """Determine if a condition is a join condition by checking for table aliases"""
+    if not condition:
+        return False
+    # Remove parentheses
+    condition = condition.replace('(', '').replace(')', '')
+    if '=' not in condition:
+        return False
+    
+    # Check if both sides of the condition reference tables (contain dots)
+    parts = condition.split('=')
+    return '.' in parts[1]
 
 def extract_join_condition(condition):
     """Extract table aliases and columns from join conditions"""
+    left_alias = None
+    left_col = None
+    right_alias = None
+    right_col = None
     if not condition:
         return None, None, None, None
     
     # Remove parentheses and split on equals
     condition = condition.replace('(', '').replace(')', '')
+    
+    if '=' not in condition:
+        print("failing at =")
+        return None, None, None, None
+        
     left, right = condition.split('=')
     
     # Extract table alias and column for left side
     left = left.strip()
-    left_parts = left.split('.')
-    left_alias = left_parts[0].strip()
-    left_col = left_parts[1].strip()
+    if '.' in left:
+        left_parts = left.split('.')
+        left_alias = left_parts[0].strip()
+        left_col = left_parts[1].strip()
+    else:
+        left_col = left
     
     # Extract table alias and column for right side
     right = right.strip()
-    right_parts = right.split('.')
-    right_alias = right_parts[0].strip()
-    right_col = right_parts[1].strip()
+    if '.' in right:
+        right_parts = right.split('.')
+        right_alias = right_parts[0].strip()
+        right_col = right_parts[1].strip()
     
     return left_alias, left_col, right_alias, right_col
 
 def parse_execution_plan_to_dict(plan):
     """Parse execution plan and convert to structured dictionary format"""
-    tree = parse_execution_plan(plan)  # Using your existing parser
+    tree = parse_execution_plan(plan)
     
     result = {
         'operation': 'SELECT + Join',
@@ -269,61 +303,117 @@ def parse_execution_plan_to_dict(plan):
     def traverse_tree(node):
         if not node:
             return
-        
-        # Handle Seq Scan nodes (source tables)
-        if node['type'] == 'Seq Scan':
+            
+        node_type = node['type']
+        print(node_type)
+        # Handle all scan types (source tables)
+        if node_type in ['Seq Scan', "Index Scan", 'Index Only Scan', 'Parallel']:
             table, alias = extract_table_info(node['details'])
             if table:
                 source_info = {
                     'table': table,
                     'alias': alias,
-                    'type': 'Seq Scan'
+                    'type': node_type
                 }
                 result['source'].append(source_info)
             
-            # Handle filter conditions for selects
+            # Handle conditions
             if 'conditions' in node:
                 for condition in node['conditions']:
-                    if '>' in condition or '<' in condition or '=' in condition:
-                        parts = condition.split('>')
-                        if len(parts) != 2:
-                            parts = condition.split('<')
-                        if len(parts) != 2:
-                            parts = condition.split('=')
-                        
-                        if len(parts) == 2:
-                            left, right = parts
-                            select_info = {
-                                'left': left.strip(),
-                                'operator': '>',  # You might want to detect the actual operator
-                                'right': right.strip().replace("'", ""),
-                                'alias': alias,
-                                'type': 'Seq Scan'
-                            }
-                            result['selects'].append(select_info)
+                    # First check if it's a join condition
+                    if node_type == "Index Scan":
+                        print(condition + " Is a join conditon")
+                        left_alias, left_col, right_alias, right_col = extract_join_condition(condition)
+                        print(extract_join_condition(condition))
+                        left_alias = alias
+                        if left_alias and right_alias:
+                            join_info = [
+                                {
+                                    'table': next((s['table'] for s in result['source'] 
+                                                 if s['alias'] == left_alias), left_alias),
+                                    'alias': left_alias,
+                                    'on': left_col,
+                                    'type': node_type
+                                },
+                                {
+                                    'table': next((s['table'] for s in result['source'] 
+                                                 if s['alias'] == right_alias), right_alias),
+                                    'alias': right_alias,
+                                    'on': right_col,
+                                    'type': node_type
+                                }
+                            ]
+                            result['joins'].append(join_info)
+                    else:
+                        # Handle non-join conditions (actual select conditions)
+                        if any(op in condition for op in ['>', '<', '=']):
+                            parts = condition.split('>')
+                            if len(parts) != 2:
+                                parts = condition.split('<')
+                            if len(parts) != 2:
+                                parts = condition.split('=')
+                            
+                            if len(parts) == 2:
+                                left, right = parts
+                                # Only add to selects if it's not a join condition
+                                if not ('.' in left and '.' in right):
+                                    select_info = {
+                                        'left': left.strip(),
+                                        'operator': condition[len(left)].strip(),
+                                        'right': right.strip().replace("'", ""),
+                                        'alias': alias,
+                                        'type': node_type
+                                    }
+                                    result['selects'].append(select_info)
         
         # Handle Hash Join nodes
-        elif node['type'] == 'Hash Join':
+        elif node_type in ['Hash Join' , 'Parallel Hash Join']:
+            print(node_type)
             if 'conditions' in node:
                 for condition in node['conditions']:
-                    left_alias, left_col, right_alias, right_col = extract_join_condition(condition)
-                    if left_alias and right_alias:
-                        join_info = [
-                            {
-                                'table': next((s['table'] for s in result['source'] 
-                                             if s['alias'] == left_alias), left_alias),
-                                'alias': left_alias,
-                                'on': left_col,
-                                'type': 'Hash'
-                            },
-                            {
-                                'table': next((s['table'] for s in result['source'] 
-                                             if s['alias'] == right_alias), right_alias),
-                                'alias': right_alias,
-                                'on': right_col,
-                                'type': 'Hash'
-                            }
-                        ]
+                    print(condition, node_type)
+                    if node_type == "Parallel Hash Join":
+                        conditions = re.split(r'\s+(AND|OR)\s+', condition, flags=re.IGNORECASE)
+                        print(conditions)
+                        for x in conditions:
+                            left_alias, left_col, right_alias, right_col = extract_join_condition(condition)
+                            if left_alias and right_alias:
+                                join_info = [
+                                    {
+                                        'table': next((s['table'] for s in result['source'] 
+                                                    if s['alias'] == left_alias), left_alias),
+                                        'alias': left_alias,
+                                        'on': left_col,
+                                        'type': node_type
+                                    },
+                                    {
+                                        'table': next((s['table'] for s in result['source'] 
+                                                    if s['alias'] == right_alias), right_alias),
+                                        'alias': right_alias,
+                                        'on': right_col,
+                                        'type': node_type
+                                    }
+                                ]
+                            result['joins'].append(join_info)
+                    else:
+                        left_alias, left_col, right_alias, right_col = extract_join_condition(condition)
+                        if left_alias and right_alias:
+                            join_info = [
+                                {
+                                    'table': next((s['table'] for s in result['source'] 
+                                                if s['alias'] == left_alias), left_alias),
+                                    'alias': left_alias,
+                                    'on': left_col,
+                                    'type': node_type
+                                },
+                                {
+                                    'table': next((s['table'] for s in result['source'] 
+                                                if s['alias'] == right_alias), right_alias),
+                                    'alias': right_alias,
+                                    'on': right_col,
+                                    'type': node_type
+                                }
+                            ]
                         result['joins'].append(join_info)
         
         # Traverse children
@@ -357,18 +447,35 @@ def process_query_plan_full(sql_query):
 if __name__ == "__main__":
     sql_query =  """
     SELECT 
-        C.c_custkey AS customer_id,
-        C.c_name AS customer_name,
-        C.c_acctbal AS customer_balance,
-        N.n_name AS nation_name,
-        R.r_name AS region_name,
-        S.s_name AS supplier_name,
-        S.s_acctbal AS supplier_balance
-    FROM customer C, nation N, region R, supplier S
-    WHERE C.c_nationkey = N.n_nationkey
-    AND N.n_regionkey = R.r_regionkey
-    AND S.s_nationkey = N.n_nationkey
-    AND C.c_acctbal > 1000
+        c.c_name AS customer_name,
+        o.o_orderkey AS order_id,
+        o.o_orderdate AS order_date,
+        p.p_name AS part_name,
+        s.s_name AS supplier_name,
+        n.n_name AS nation_name,
+        r.r_name AS region_name,
+        l.l_quantity AS quantity,
+        l.l_extendedprice AS extended_price
+    FROM 
+        customer c,
+        orders o,
+        lineitem l,
+        part p,
+        partsupp ps,
+        supplier s,
+        nation n,
+        region r
+    WHERE 
+        c.c_custkey = o.o_custkey
+        AND o.o_orderkey = l.l_orderkey
+        AND l.l_partkey = p.p_partkey
+        AND l.l_suppkey = s.s_suppkey
+        AND p.p_partkey = ps.ps_partkey
+        AND ps.ps_suppkey = s.s_suppkey
+        AND c.c_nationkey = n.n_nationkey
+        AND s.s_nationkey = n.n_nationkey
+        AND n.n_regionkey = r.r_regionkey
+        AND p.p_retailprice < 1000
     """
 
     '''
@@ -447,10 +554,12 @@ if __name__ == "__main__":
     #print("Parsed Metadata:", metadata)
    
 
-    # plan=get_execution_plan(sql_query)
-    # print(plan)
-    # tree = parse_execution_plan(plan)
+    plan=get_execution_plan(sql_query)
+    print(plan)
+    tree = parse_execution_plan(plan)
+    # print('----------------------------------------')
     # print_tree(tree)
+    # print("--------------------------------------")
     tree, structured_format = process_query_plan_full(sql_query)
     print(json.dumps(structured_format, indent=2))
 
