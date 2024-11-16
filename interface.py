@@ -1,27 +1,42 @@
 import tkinter as tk
 from tkinter import ttk
 from whatif import get_nodes_and_edges, build_query_tree,total_IO_cost
+from preprocessing import process_query_plan_full,preprocess_query
 from constants import query_input_1
 #{'lineitem': 6001215, 'orders': 1500000, 'part': 200000, 'partsupp': 800000, 'customer': 150000, 'supplier': 10000, 'region': 5, 'nation': 25}
 
 
 class TreeVisualizer:
-    def __init__(self, root,query_dict,use_dict_IO_tuples):
+    def __init__(self, root,query_dict,use_dict_IO_tuples,disable_buttons,screen_ratio):
         self.root = root
         self.nodes = None
         self.edges = None
         self.query_dict = query_dict
         self.use_dict_IO_tuples=use_dict_IO_tuples
         self.join_order = list(range(len(query_dict["joins"])))
-        # Set the default window size to 700x500
-        self.root.geometry("1000x1000")
+        self.disable_buttons = disable_buttons
+        self.screen_ratio = screen_ratio
+        print(self.root)
+         # Get the screen dimensions
+        screen_width = root.winfo_screenwidth()
+        screen_height = root.winfo_screenheight()
+
+        # Set the canvas width to the screen width
+        canvas_width = screen_width
+
+        # Set the canvas height based on the screen_ratio
+        canvas_height = screen_height // self.screen_ratio
+        if isinstance(self.root, tk.Tk):
+            root.geometry(f"{screen_width}x{screen_height}")
+       
         self.join_types=[]
         # Create a frame to hold the canvas and scrollbars
         self.frame = tk.Frame(root)
-        self.frame.pack(fill=tk.BOTH, expand=True)
-
+        self.frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+        self.frame.grid_rowconfigure(0, weight=1)
+        self.frame.grid_columnconfigure(0, weight=1)
         # Create a canvas with scrollbars
-        self.canvas = tk.Canvas(self.frame, bg='white', scrollregion=(0, 0, 1600, 1400))
+        self.canvas = tk.Canvas(self.frame, bg='white',width=canvas_width-100, height=canvas_height, scrollregion=(0, 0, 1600, 1400))
         self.h_scrollbar = ttk.Scrollbar(self.frame, orient="horizontal", command=self.canvas.xview)
         self.v_scrollbar = ttk.Scrollbar(self.frame, orient="vertical", command=self.canvas.yview)
         self.canvas.configure(xscrollcommand=self.h_scrollbar.set, yscrollcommand=self.v_scrollbar.set)
@@ -36,11 +51,12 @@ class TreeVisualizer:
 
         # Create an options frame below the canvas for buttons
         self.options_frame = tk.Frame(root, bg="lightgray", pady=10)
-        self.options_frame.pack(fill=tk.X)
-        self.create_option_buttons(self.options_frame)  # Only create options once
+        self.options_frame.grid(row=2, column=0, sticky="ew")
+        if self.disable_buttons is False:
+            self.create_option_buttons(self.options_frame)  # Only create options once
+            self.create_join_buttons()
         self.node_positions = {}
         # Initial run to display the tree
-        self.create_join_buttons()
         self.run()
 
     def create_tree_visualization(self):
@@ -68,9 +84,13 @@ class TreeVisualizer:
             self.bottom_label.destroy()
 
         # Add the updated statistics as a new label
+        if self.disable_buttons is True:
+            mode= "Original"
+        else:
+            mode = "Modified"
         self.bottom_label = tk.Label(
             self.options_frame,
-            text=f"Total IO cost: {tree_IO_cost} \nEstimated tuples: {est_tuples}",
+            text=f"{mode}: \n Total IO cost: {tree_IO_cost} \nEstimated tuples: {est_tuples}",
             anchor="w",
             bg="lightgray",
             font=("Arial", 10)
@@ -119,7 +139,7 @@ class TreeVisualizer:
         text_height = text_bbox[3] - text_bbox[1]  
         # Define padding for the rectangle
         padding = 10
-
+        
         # Create the rectangle based on the text's bounding box size
         self.canvas.create_rectangle(
             x - text_width / 2 - padding, y - text_height / 2 - padding,
@@ -182,7 +202,31 @@ class TreeVisualizer:
     
 
 # Set up the Tkinter window and visualize the tree
-#root = tk.Tk()
-#root.title("Query Tree Visualization")
-#visualizer = TreeVisualizer(root, query_input_1)
-#root.mainloop()
+
+
+'''
+
+root = tk.Tk()
+root.title("Query Tree Visualization")
+sql_query =  """
+    SELECT 
+        C.c_custkey AS customer_id,
+        C.c_name AS customer_name,
+        C.c_acctbal AS customer_balance,
+        N.n_name AS nation_name,
+        R.r_name AS region_name,
+        S.s_name AS supplier_name,
+        S.s_acctbal AS supplier_balance
+    FROM customer C, nation N, region R, supplier S
+    WHERE C.c_nationkey = N.n_nationkey
+    AND N.n_regionkey = R.r_regionkey
+    AND S.s_nationkey = N.n_nationkey
+    AND C.c_acctbal > 1000
+    """
+modified_QEP_formatted=preprocess_query(sql_query)
+tree, original_QEP_formatted=process_query_plan_full(sql_query)
+visualizer = TreeVisualizer(root, original_QEP_formatted, use_dict_IO_tuples=True,disable_buttons=True,1)
+#visualizer = TreeVisualizer(root, modified_QEP_formatted, use_dict_IO_tuples=False, disable_buttons=False,1)
+root.mainloop()
+
+'''
