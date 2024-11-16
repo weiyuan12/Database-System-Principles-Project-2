@@ -13,19 +13,25 @@ def parse_tables_from_clause(from_clause):
     for match in re.finditer(r"(\w+)\s+(\w+)?", from_clause, re.IGNORECASE):
         table_name = match.group(1)
         alias = match.group(2) if match.group(2) else table_name
-        tables.append({"table": table_name, "alias": alias,'type':'Seq Scan'})
+        tables.append({"table": table_name, "alias": alias, 'type': 'Seq Scan'})
     return tables
 
-def parse_projections(select_clause):
-    '''
-    Extract columns specified in SELECT
-    - select_clause: The SELECT clause of the raw query
-    returns: projections array
-    '''
-    projections = [col.strip() for col in select_clause.split(",")]
-    if '*' in projections:
-        return ["*"]  # Wildcard indicates all columns
-    return projections
+def split_conditions(where_clause):
+    """
+    Split WHERE clause into individual conditions
+    - where_clause: The WHERE clause string
+    returns: List of individual conditions
+    """
+    conditions = []
+    current_condition = ''
+    paren_count = 0
+    
+    # First clean up the where clause
+    where_clause = where_clause.replace('\n', ' ').strip()
+    result = re.split(r'\s+(?:AND|OR)\s+', where_clause, flags=re.IGNORECASE)
+        
+    # Clean up conditions
+    return result
 
 def parse_conditions(where_clause, tables):
     """
@@ -36,11 +42,23 @@ def parse_conditions(where_clause, tables):
     joins = []
     selects = []
     
-    # Find all conditions with comparison operators
-    condition_pattern = r"(\w+\.\w+)\s*(=|>|<|>=|<=)\s*(\w+\.\w+|\w+)"
-    matches = re.findall(condition_pattern, where_clause)
-
-    for left_side, operator, right_side in matches:
+    # Split the where clause into individual conditions
+    conditions = split_conditions(where_clause)
+    print(conditions)
+    for condition in conditions:
+        # Find comparison operator
+        operators = ['<=', '>=', '=', '<', '>']
+        operator = None
+        for op in operators:
+            if op in condition:
+                operator = op
+                break
+                
+        if not operator:
+            continue
+            
+        left_side, right_side = [s.strip() for s in condition.split(operator)]
+        
         # Count dots to determine if the condition is a join or select
         left_dots = left_side.count(".")
         right_dots = right_side.count(".")
@@ -51,29 +69,44 @@ def parse_conditions(where_clause, tables):
             right_alias, right_column = right_side.split(".")
             
             join_pair = [
-                {"table": next(t["table"] for t in tables if t["alias"] == left_alias), "alias": left_alias, "on": left_column,"type":JOINS[0]},
-                {"table": next(t["table"] for t in tables if t["alias"] == right_alias), "alias": right_alias, "on": right_column,"type":JOINS[0]}
+                {"table": next((t["table"] for t in tables if t["alias"] == left_alias), left_alias), 
+                 "alias": left_alias, 
+                 "on": left_column,
+                 "type": "Hash Join"},
+                {"table": next((t["table"] for t in tables if t["alias"] == right_alias), right_alias), 
+                 "alias": right_alias, 
+                 "on": right_column,
+                 "type": "Hash Join"}
             ]
             joins.append(join_pair)
         else:
-            # It's a select condition (single table field comparison)
+            # It's a select condition
             if left_dots == 1:
                 alias = left_side.split(".")[0]
+                select_info = {
+                    "left": left_side,
+                    "operator": operator,
+                    "right": right_side,
+                    "alias": alias,
+                    'type': 'Seq Scan'
+                }
             elif right_dots == 1:
                 alias = right_side.split(".")[0]
-            selects.append({
-                "left": left_side,
-                "operator": operator,
-                "right": right_side,
-                "alias": alias,
-                'type': SCANS[0]
-            })
+                select_info = {
+                    "left": left_side,
+                    "operator": operator,
+                    "right": right_side,
+                    "alias": alias,
+                    'type': 'Seq Scan'
+                }
+            selects.append(select_info)
+            
     return joins, selects
 
 def preprocess_query(sql_query):
     '''
     Main function to preprocess the query
-    - sql_query: The SQL query string (assuming it has no aggregation)
+    - sql_query: The SQL query string
     returns: preprocessed data
     '''
     metadata = {
@@ -83,25 +116,20 @@ def preprocess_query(sql_query):
         "selects": []
     }
     
-    # Extract the main parts of the SQL query using regex
-    #select_match = re.search(r"SELECT\s+(.*?)\s+FROM", sql_query, re.IGNORECASE | re.DOTALL)
-    from_match = re.search(r"FROM\s+(.+?)\s*(WHERE|GROUP)", sql_query, re.IGNORECASE | re.DOTALL)
-    where_match = re.search(r"WHERE\s+(.*?)(GROUP|ORDER|$)", sql_query, re.IGNORECASE | re.DOTALL)
-    '''
-    if select_match:
-        select_clause = select_match.group(1).strip()
-        metadata["projections"] = parse_projections(select_clause)
-    '''
+    # Extract the main parts of the SQL query
+    # More robust pattern matching
+    clauses = {
+        'from': re.search(r"FROM\s+(.*?)(?=\s+WHERE|\s*$)", sql_query, re.IGNORECASE | re.DOTALL),
+        'where': re.search(r"WHERE\s+(.*?)(?=\s+GROUP BY|\s+ORDER BY|\s+LIMIT|\s*$)", sql_query, re.IGNORECASE | re.DOTALL)
+    }
     
-    
-    if from_match:
-        from_clause = from_match.group(1).strip()
+    if clauses['from']:
+        from_clause = clauses['from'].group(1).strip()
         tables = parse_tables_from_clause(from_clause)
         metadata["source"] = tables
 
-        # Extract joins and selects if any conditions exist in WHERE clause
-        if where_match:
-            where_clause = where_match.group(1).strip()
+        if clauses['where']:
+            where_clause = clauses['where'].group(1).strip()
             joins, selects = parse_conditions(where_clause, tables)
             metadata["joins"] = joins
             metadata["selects"] = selects
@@ -110,9 +138,8 @@ def preprocess_query(sql_query):
     if metadata["joins"]:
         metadata["operation"] += " + Join"
 
-    with open("query_plan_structured.json", "w", encoding='utf-8') as f:
-        json.dump(structured_format, f, indent=2)
-
+    with open("our_structured_plan.json", "w", encoding='utf-8') as f:
+        json.dump(metadata, f, indent=2)
     return metadata
 
 
@@ -269,7 +296,6 @@ def extract_join_condition(condition, is_index_join = False):
     
     # Remove parentheses and split on equals
     condition = condition.replace('(', '').replace(')', '')
-    print(condition)
     left, right = condition.split('=')
     
     # Extract table alias and column for left side
