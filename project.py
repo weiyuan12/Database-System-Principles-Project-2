@@ -3,25 +3,60 @@ from preprocessing import process_query_plan_full,preprocess_query
 import tkinter as tk
 from tkinter import ttk
 from interface import TreeVisualizer
-sql_query =  """
-    SELECT 
-        C.c_custkey AS customer_id,
+sql_query =  '''
+SELECT 
         C.c_name AS customer_name,
-        C.c_acctbal AS customer_balance,
+        O.o_orderkey AS order_id,
+        O.o_orderdate AS order_date,
+        P.p_name AS part_name,
+        S.s_name AS supplier_name,
         N.n_name AS nation_name,
         R.r_name AS region_name,
-        S.s_name AS supplier_name,
-        S.s_acctbal AS supplier_balance
-    FROM customer C, nation N, region R, supplier S
-    WHERE C.c_nationkey = N.n_nationkey
-    AND N.n_regionkey = R.r_regionkey
-    AND S.s_nationkey = N.n_nationkey
-    AND C.c_acctbal > 1000
-    """
+        L.l_quantity AS quantity,
+        L.l_extendedprice AS extended_price
+    FROM 
+        customer C,
+        orders O,
+        lineitem L,
+        part P,
+        supplier S,
+        nation N,
+        region R
+    WHERE 
+        C.c_custkey = O.o_custkey
+        AND O.o_orderkey = L.l_orderkey
+        AND L.l_partkey = P.p_partkey
+        AND L.l_suppkey = S.s_suppkey
+        AND C.c_nationkey = N.n_nationkey
+        AND S.s_nationkey = N.n_nationkey
+        AND N.n_regionkey = R.r_regionkey
+        AND P.p_retailprice < 1000
+'''
+
+query_dict = {
+    'operation': 'SELECT + Join',
+    'source': [
+        {'table': 'customer', 'alias': 'c', 'type': 'Seq Scan'},
+        {'table': 'orders', 'alias': 'o', 'type': 'Seq Scan'},
+        {'table': 'lineitem', 'alias': 'l', 'type': 'Seq Scan'},
+        {'table': 'part', 'alias': 'p', 'type': 'Seq Scan'},
+        {'table': 'supplier', 'alias': 's', 'type': 'Seq Scan'},
+        {'table': 'nation', 'alias': 'n', 'type': 'Seq Scan'},
+        {'table': 'region', 'alias': 'r', 'type': 'Seq Scan'}
+    ],
+    'joins': [
+        [
+            {'table': 'customer', 'alias': 'c', 'on': 'c_custkey', 'type': 'Hash Join'},
+            {'table': 'orders', 'alias': 'o', 'on': 'o_custkey', 'type': 'Hash Join'}
+        ]
+    ],
+    'selects': []
+}
 
 tree, original_QEP_formatted=process_query_plan_full(sql_query)
 
 modified_QEP_formatted=preprocess_query(sql_query)
+print(modified_QEP_formatted)
 
 # Root window setup
 

@@ -1,6 +1,7 @@
 from constants import query_input_1
 from pgconn import query_row_counts
-from constants import SCANS,JOINS
+from constants import SCANS,JOINS,FILTERS
+import math
 Tuples={'lineitem': 6001215, 'orders': 1500000, 'part': 200000, 'partsupp': 800000, 'customer': 150000, 'supplier': 10000, 'region': 5, 'nation': 25}
 
 class QueryNode:
@@ -77,18 +78,54 @@ def get_db_metrics():
     '''
     return query_row_counts()
 
-def get_selection_tuple_and_IO(node1,node2):
-
+def set_selection_tuple_and_IO(query_dict_itm,mode,node,table_name,number_of_tuples,columns):
+    '''
+    query_dict_itm-> the object from the query dict
+    node-> selection or source node
+    mode-> source or selects
+    '''
+    
+    if mode =="source":
+        number_of_blocks=5000 # connect to db (tuple_size/block_size)
+        selectivity = 0.1
+        matching_blocks = int(number_of_blocks * selectivity)
+        if query_dict_itm['type'] in SCANS:
+            if query_dict_itm['type']==SCANS[0]:
+                ## seq
+                node.set_IO_cost(number_of_blocks)
+            else:
+                ## bitmap and index
+                bitmap_index_cost = int(math.log2(number_of_blocks))
+                node.set_IO_cost(bitmap_index_cost + matching_blocks)
+        else:
+            node.set_IO_cost(number_of_blocks)
+        
+    else:
+        
+        # selection means that there is only 1 child
+        print(node)
+        child = node.get_children()[0]
+        number_of_child_tuples=child.get_tuples()
+        number_of_distinct_tuples=20 # connect to db
+        clustered=True # connect to db
+        if query_dict_itm["type"] in FILTERS:
+            if query_dict_itm["operator"]=="<" or query_dict_itm["operator"]==">":
+                # divide by 3
+                node.set_tuples(number_of_child_tuples//3)
+            elif query_dict_itm["operator"]=="=":
+                node.set_tuples(number_of_child_tuples//number_of_distinct_tuples)
+            elif query_dict_itm["operator"]=="!=":
+                node.set_tuples(number_of_child_tuples(number_of_distinct_tuples-1)//number_of_distinct_tuples)
+        node.set_IO_cost(number_of_blocks)
     return 0,0
     
-def get_join_selection_tuple_and_IO(node1,node2):
-  
+def set_join_tuple_and_IO(node1,node2):
     return 0,0
     
 def select_and_project(query_dict,source_alias,source_table,scan_type,use_dict_IO_tuples):
 
     '''
-    Select then project a source
+    Select a source
     - query_dict: the processed query from preprocessing.py
     - source_alias: the alias of the source to be selected then projected
     returns: selection node
@@ -106,29 +143,41 @@ def select_and_project(query_dict,source_alias,source_table,scan_type,use_dict_I
             for key in Tuples:
                 print(key.lower().startswith(source_alias.lower()))
                 if key.lower().startswith(source_alias.lower()):
-                    source_node.set_tuples(Tuples[key])
+                    
+                    set_selection_tuple_and_IO(query_dict["source"][m],"source",source_node,key,Tuples[key],None)
     else:
         for i in range(len(query_dict["source"])):
             if query_dict["source"][i]["alias"].lower().startswith(source_alias.lower()):
                 source_node.set_tuples(query_dict["source"][i]["tuples"])
-
+                source_node.set_IO_cost(query_dict["source"][i]["IO_cost"])
+                
     source_node.set_Q_Type(scan_type)
     # Check for Selections (range queries)
     selection_node=None
     #projection_node=None
     # selection
+    columns=[]
     for m in range(len(query_dict["selects"])):
         selection_alias=query_dict["selects"][m]["alias"]
         if(source_alias == selection_alias):
+
             selections.append(query_dict["selects"][m]["left"]+query_dict["selects"][m]["operator"]+query_dict["selects"][m]["right"])
             selection_node=QueryNode("Selection",selections)
             selection_node.add_child(source_node)
             selection_node.set_Q_Type(query_dict["selects"][m]["type"])
-            if use_dict_IO_tuples:
-                selection_node.set_tuples(query_dict["selects"][m]["tuples"])
-                selection_node.set_IO_cost(query_dict["selects"][m]["IO_cost"])
-            else:
-                print("TBD this calc")
+        if '.' in query_dict["selects"][m]["left"]:
+            columns.append(query_dict["selects"][m]["left"].split('.')[-1])
+        if '.' in query_dict["selects"][m]["right"]:
+            columns.append(query_dict["selects"][m]["right"].split('.')[-1])
+    if use_dict_IO_tuples and selection_node is not None:
+        selection_node.set_tuples(query_dict["selects"][m]["tuples"])
+        selection_node.set_IO_cost(query_dict["selects"][m]["IO_cost"])
+        
+    else:
+        print("tbd")
+        #set_selection_tuple_and_IO(query_dict["selects"][m],"select",selection_node,source_table,source_node.get_tuples(),columns)
+        
+                    
 
     '''
     
