@@ -346,7 +346,6 @@ def parse_execution_plan_to_dict(plan):
                             result['selects'].append(select_info)
         # Handle Join nodes
         if node['type'] in JOINS:
-            print(node['type'])
             io_cost, tuples_returned = extract_cost_and_rows(node['details'])
             table, alias = extract_table_info(node['details'])
             if 'conditions' in node:
@@ -388,7 +387,6 @@ def parse_execution_plan_to_dict(plan):
                         else:
                             left_alias, left_col, right_alias, right_col = extract_join_condition(condition)
                         if left_alias and right_alias:
-                            print (node['details'])
                             join_info = [
                                 {
                                     'table': next((s['table'] for s in result['source'] 
