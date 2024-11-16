@@ -138,7 +138,7 @@ def preprocess_query(sql_query):
     if metadata["joins"]:
         metadata["operation"] += " + Join"
 
-    with open("our_structured_plan.json", "w", encoding='utf-8') as f:
+    with open("generated_our_QEP_structured.json", "w", encoding='utf-8') as f:
         json.dump(metadata, f, indent=2)
     return metadata
 
@@ -449,15 +449,15 @@ def process_query_plan_full(sql_query):
     # Generate tree visualization
     tree = parse_execution_plan(plan)
 
-    with open("original_plan.txt", "w", encoding='utf-8') as f:
+    with open("generated_postgres_plan.txt", "w", encoding='utf-8') as f:
         f.write(plan)
-    save_tree_to_file(tree, "query_plan_tree.txt")
+    save_tree_to_file(tree, "generated_postgres_query_plan_tree.txt")
     
     # Generate structured dictionary format
     structured_format = parse_execution_plan_to_dict(plan)
     
     # Save structured format to file
-    with open("query_plan_structured.json", "w", encoding='utf-8') as f:
+    with open("generated_postgres_query_plan_structured.json", "w", encoding='utf-8') as f:
         json.dump(structured_format, f, indent=2)
     
     return tree, structured_format
