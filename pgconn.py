@@ -1,3 +1,4 @@
+from functools import cache
 import psycopg2
 import tkinter as tk
 from tkinter import ttk
@@ -74,4 +75,105 @@ def get_execution_plan(query):
     except Exception as e:
         print(f"Error: {e}")
 
+@cache
+def get_unique_count(table, key) -> int:
+    '''
+    Function to get the number of unique values in a column
+    '''
+    try:
+        # Establish the connection
+        conn = psycopg2.connect(
+            dbname=dbname,
+            user=user,
+            password=password,
+            host=host,
+            port=port
+        )
 
+        with conn.cursor() as cur:
+            # SQL query to count the distinct values
+            cur.execute(f"SELECT attname, n_distinct FROM pg_stats WHERE tablename='{table}' AND attname='{key}'")
+            # Fetch the result
+            count = cur.fetchone()[1]
+            # If n_distinct is positive, it's an estimated number of distinct values.
+            # If n_distinct is negative, it represents a fraction of the total rows (e.g., -0.1 means ~10% of the rows are unique).
+            if count >0:
+                conn.close()
+                return count
+            else:
+                total_rows = get_row_count(conn, table)
+                conn.close()
+                return int(total_rows * abs(count))
+
+    except Exception as e:
+        print(f"Error: {e}")
+
+@cache
+def get_no_working_blocks() -> int:
+    '''
+    Function to get the number of working blocks in shared_buffers
+    '''
+    try:
+        # Establish the connection
+        conn = psycopg2.connect(
+            dbname=dbname,
+            user=user,
+            password=password,
+            host=host,
+            port=port
+        )
+
+        with conn.cursor() as cur:
+            # SQL query to get the number of working blocks
+            cur.execute("""
+            SELECT
+                setting AS shared_buffers_blocks,
+                setting::bigint * current_setting('block_size')::bigint / (1024 * 1024) AS shared_buffers_size_mb
+            FROM pg_settings
+            WHERE name = 'shared_buffers';
+            """)
+            # Fetch the result
+            result = cur.fetchone()[0]
+            conn.close()
+            return result
+    except Exception as e:
+        print(f"Error: {e}")
+
+def get_blocks(table) -> int:
+    try:
+        # Establish the connection
+        conn = psycopg2.connect(
+            dbname=dbname,
+            user=user,
+            password=password,
+            host=host,
+            port=port
+        )
+
+        with conn.cursor() as cur:
+            # SQL query to get the number of blocks used by the table
+            cur.execute(f"""
+            SELECT
+                pg_relation_size('{table}') AS table_size_bytes,
+                pg_size_pretty(pg_relation_size('{table}')) AS table_size_pretty,
+                current_setting('block_size')::int AS block_size_bytes,
+                pg_relation_size('{table}') / current_setting('block_size')::int AS blocks_used
+            FROM
+                pg_class
+            WHERE
+                relname = '{table}';
+            """)
+            # Fetch the result
+            result = cur.fetchone()
+            conn.close()
+            return result[3]
+    except Exception as e:
+        print(f"Error: {e}")
+
+if __name__ == "__main__":
+    table = "lineitem"
+    key = "l_extendedprice"
+    print(f"Number of tuples in {table}: {query_row_counts()[table]}")
+    print(f"Unique count of {table}: {get_unique_count(table, key)}")
+    print(f"Number of working blocks: {get_no_working_blocks()}")
+    print(f"Get blocks in {table} : {get_blocks(table)}")
