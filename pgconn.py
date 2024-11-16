@@ -137,10 +137,41 @@ def get_no_working_blocks():
     except Exception as e:
         print(f"Error: {e}")
 
+def get_blocks(table):
+    try:
+        # Establish the connection
+        conn = psycopg2.connect(
+            dbname=dbname,
+            user=user,
+            password=password,
+            host=host,
+            port=port
+        )
+
+        with conn.cursor() as cur:
+            # SQL query to get the number of blocks used by the table
+            cur.execute(f"""
+            SELECT
+                pg_relation_size('{table}') AS table_size_bytes,
+                pg_size_pretty(pg_relation_size('{table}')) AS table_size_pretty,
+                current_setting('block_size')::int AS block_size_bytes,
+                pg_relation_size('{table}') / current_setting('block_size')::int AS blocks_used
+            FROM
+                pg_class
+            WHERE
+                relname = '{table}';
+            """)
+            # Fetch the result
+            result = cur.fetchone()
+            conn.close()
+            return result[3]
+    except Exception as e:
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
-    row_counts = query_row_counts()
-    print(f"Number of tuples in lineitem: {row_counts['lineitem']}")
-    unique_cnt = get_unique_count("lineitem", "l_extendedprice")
-    print(f"Unique count of lineitem: {unique_cnt}")
+    table = "lineitem"
+    key = "l_extendedprice"
+    print(f"Number of tuples in {table}: {query_row_counts()[table]}")
+    print(f"Unique count of {table}: {get_unique_count(table, key)}")
     print(f"Number of working blocks: {get_no_working_blocks()}")
+    print(f"Get blocks in {table} : {get_blocks(table)}")
