@@ -75,3 +75,31 @@ def get_execution_plan(query):
         print(f"Error: {e}")
 
 
+def get_unique_count(table, key):
+    try:
+        # Establish the connection
+        conn = psycopg2.connect(
+            dbname=dbname,
+            user=user,
+            password=password,
+            host=host,
+            port=port
+        )
+
+        with conn.cursor() as cur:
+            # SQL query to count the distinct values
+            cur.execute(f"SELECT attname, n_distinct FROM pg_stats WHERE tablename='{table}' AND attname='{key}'")
+            # Fetch the result
+            count = cur.fetchone()[1]
+            conn.close()
+            # If n_distinct is positive, it's an estimated number of distinct values.
+            # If n_distinct is negative, it represents a fraction of the total rows (e.g., -0.1 means ~10% of the rows are unique).
+            return (count, "number") if count>0 else (-count, "fraction")
+    except Exception as e:
+        print(f"Error: {e}")
+
+if __name__ == "__main__":
+    row_counts = query_row_counts()
+    print(f"Number of tuples in lineitem: {row_counts['lineitem']}")
+    unique_cnt = get_unique_count("lineitem", "l_extendedprice")
+    print(f"Unique count of lineitem: {unique_cnt}")
