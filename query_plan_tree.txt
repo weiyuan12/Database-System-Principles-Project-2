@@ -1,0 +1,12 @@
+Hash Join: Hash Join  (cost=529.08..92454.48 rows=48947712 width=269) (actual time=6.264..5152.814 rows=49151891 loops=1)
+        │ Filter: (c.c_nationkey = n.n_nationkey)
+    ├── Seq Scan: ->  Seq Scan on customer c  (cost=0.00..5675.00 rows=122341 width=33) (actual time=0.014..67.906 rows=122881 loops=1)
+    │       │ Filter: (c_acctbal > '1000'
+    │       └ Filter: 27119
+    └── Hash Join: ->  Hash Join  (cost=27.20..404.08 rows=10000 width=248) (actual time=0.053..4.080 rows=10000 loops=1)
+            │ Filter: (n.n_regionkey = r.r_regionkey)
+        └── Hash Join: ->  Hash Join  (cost=13.60..363.54 rows=10000 width=148) (actual time=0.033..2.755 rows=10000 loops=1)
+                │ Filter: (s.s_nationkey = n.n_nationkey)
+            ├── Seq Scan: ->  Seq Scan on supplier s  (cost=0.00..323.00 rows=10000 width=36) (actual time=0.003..0.749 rows=10000 loops=1)
+            ├── Seq Scan: ->  Seq Scan on nation n  (cost=0.00..11.60 rows=160 width=112) (actual time=0.006..0.008 rows=25 loops=1)
+            └── Seq Scan: ->  Seq Scan on region r  (cost=0.00..11.60 rows=160 width=108) (actual time=0.006..0.006 rows=5 loops=1)

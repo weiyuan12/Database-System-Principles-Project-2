@@ -1,5 +1,6 @@
-from example import query_input_1,query_input_2,query_input_3
+from constants import query_input_1
 from pgconn import PgConn
+from constants import SCANS,JOINS
 Tuples={'lineitem': 6001215, 'orders': 1500000, 'part': 200000, 'partsupp': 800000, 'customer': 150000, 'supplier': 10000, 'region': 5, 'nation': 25}
 
 class QueryNode:
@@ -34,7 +35,7 @@ class QueryNode:
         self.tuples=tuples
     
     def set_IO_cost(self,IO_cost):
-        self.tuples=IO_cost
+        self.IO_cost=IO_cost
 
     def set_Q_Type(self, Q_type):
         self.Q_type=Q_type
@@ -131,7 +132,18 @@ def get_db_metrics():
 if __name__ == "__main__":
     get_db_metrics()
 
-def select_and_project(query_dict,source_alias,source_table,scan_type):
+if __name__ == "__main__":
+    get_db_metrics()
+
+def get_selection_tuple_and_IO(node1,node2):
+
+    return 0,0
+    
+def get_join_selection_tuple_and_IO(node1,node2):
+  
+    return 0,0
+    
+def select_and_project(query_dict,source_alias,source_table,scan_type,use_dict_IO_tuples):
 
     '''
     Select then project a source
@@ -143,7 +155,21 @@ def select_and_project(query_dict,source_alias,source_table,scan_type):
     #projections = []
     selections = []
     source_node=QueryNode("Source",source_alias)
-    source_node.set_tuples(Tuples.get(source_table))
+    # If cannot get from source table, then use alias
+    if use_dict_IO_tuples==False:
+        tuples_value = Tuples.get(source_table)
+        if tuples_value is not None:
+            source_node.set_tuples(tuples_value)
+        else:
+            for key in Tuples:
+                print(key.lower().startswith(source_alias.lower()))
+                if key.lower().startswith(source_alias.lower()):
+                    source_node.set_tuples(Tuples[key])
+    else:
+        for i in range(len(query_dict["source"])):
+            if query_dict["source"][i]["alias"].lower().startswith(source_alias.lower()):
+                source_node.set_tuples(query_dict["source"][i]["tuples"])
+
     source_node.set_Q_Type(scan_type)
     # Check for Selections (range queries)
     selection_node=None
@@ -156,7 +182,11 @@ def select_and_project(query_dict,source_alias,source_table,scan_type):
             selection_node=QueryNode("Selection",selections)
             selection_node.add_child(source_node)
             selection_node.set_Q_Type(query_dict["selects"][m]["type"])
-            
+            if use_dict_IO_tuples:
+                selection_node.set_tuples(query_dict["selects"][m]["tuples"])
+                selection_node.set_IO_cost(query_dict["selects"][m]["IO_cost"])
+            else:
+                print("TBD this calc")
 
     '''
     
@@ -186,12 +216,13 @@ def select_and_project(query_dict,source_alias,source_table,scan_type):
     #return selection_node,projection_node
     return selection_node
 
-def join_tables(query_dict,join_index,current_intermediate_relations):
+def join_tables(query_dict,join_index,current_intermediate_relations,use_dict_IO_tuples):
     '''
     Join 2 tables from the bottom up
     - query_dict: the processed query from preprocessing.py
     - join_index: the index of the join to be performed in the query_dict
     - intermediate_relations: the array of checkpoint nodes (intermediate relations)
+    - use_dict_IO_tuples: whether to use the dictionary of IO costs and tuples
     returns: a new root, current set of intermediate relations
     '''
     # Build the tree bottom up (start with the source) (On^2)
@@ -214,7 +245,8 @@ def join_tables(query_dict,join_index,current_intermediate_relations):
             intermediate_relations.append(cp)
     # Remove items that made it to intermediate_relations from current_intermediate_relations
     updated_intermediate_relations = [cp for cp in current_intermediate_relations if cp not in intermediate_relations]
-    # 1. Logic for 2 intermediate relations
+
+    # 1. Logic for joining 2 intermediate relations
     if len(intermediate_relations)==2:
         join=join_alias_1 + "." + query_dict["joins"][join_index][0]["on"] + " = " +join_alias_2+ "." +query_dict["joins"][join_index][1]["on"]
         join_node = QueryNode("Join", join)
@@ -225,11 +257,17 @@ def join_tables(query_dict,join_index,current_intermediate_relations):
             aliases=aliases+k.get_alias()
         print(aliases)
         join_node.add_alias(aliases)
+        if use_dict_IO_tuples:
+            join_node.set_tuples(query_dict["joins"][join_index][0]["tuples"])
+            join_node.set_IO_cost(query_dict["joins"][join_index][0]["IO_cost"])
+        else:
+            print("TBD this calc")
         root=join_node
         updated_intermediate_relations.append(root)
+        
         return root,updated_intermediate_relations
     
-    # 2. Logic for 1 or 0 intermediate relations
+    # 2. Logic for joining 1 or 0 intermediate relations with a source/selectiion relation
     # if there is only 1 intermediate relation, it becomes the sole checkpoint, (Only 1 source has been joined)
     if(len(intermediate_relations)==1):
         checkpoint=intermediate_relations[0]
@@ -257,7 +295,19 @@ def join_tables(query_dict,join_index,current_intermediate_relations):
         # Perform selection and projection on the source if there is no checkpoint
         if checkpoint == None or (checkpoint and source_alias not in checkpoint.get_alias()):
             source_node=QueryNode("Source",source_alias)
-            source_node.set_tuples(Tuples.get(source_table))
+            if use_dict_IO_tuples==False:
+                tuples_value = Tuples.get(source_table)
+                if tuples_value is not None:
+                    source_node.set_tuples(tuples_value)
+                else:
+                    for key in Tuples:
+                        if key.lower().startswith(source_alias.lower()):
+                            source_node.set_tuples(Tuples[key])
+            else:
+                for i in range(len(query_dict["source"])):
+                    if query_dict["source"][i]["alias"].lower().startswith(source_alias.lower()):
+                        source_node.set_tuples(query_dict["source"][i]["tuples"])
+                
             source_node.set_Q_Type(source_Q_type)
             # Check for Selections (range queries)
             '''
@@ -271,7 +321,7 @@ def join_tables(query_dict,join_index,current_intermediate_relations):
             else:
                 top_level_sources.append(source_node)
             '''
-            selection_node=select_and_project(query_dict,source_alias,source_table,source_Q_type)
+            selection_node=select_and_project(query_dict,source_alias,source_table,source_Q_type,use_dict_IO_tuples)
                     
             if selection_node is not None:
                 top_level_sources.append(selection_node)
@@ -306,15 +356,21 @@ def join_tables(query_dict,join_index,current_intermediate_relations):
     else:
         join_node.add_alias(join_alias_1)
         join_node.add_alias(join_alias_2)
-    
+    if use_dict_IO_tuples:
+        join_node.set_tuples(query_dict["joins"][join_index][0]["tuples"])
+        join_node.set_IO_cost(query_dict["joins"][join_index][0]["IO_cost"])
+    else:
+        print("TBD this calc")
     root=join_node
     updated_intermediate_relations.append(root)
     return root,updated_intermediate_relations
 
-def build_query_tree(query_dict,join_order):
+def build_query_tree(query_dict,join_order,use_dict_IO_tuples):
     '''
     Main function to build the query tree
     - query_dict: the processed query from preprocessing.py
+    - join_order: the order of joins to be performed
+    - use_dict_IO_tuples: whether to use the dictionary of IO costs and tuples
     returns: next_top, the top of the query tree
     '''
     ## Used to store all intermediate relations
@@ -334,7 +390,7 @@ def build_query_tree(query_dict,join_order):
         else:
             return QueryNode("Source",source_alias)
         '''
-        selection_node=select_and_project(query_dict,source_alias,source_table,source_Q_type)
+        selection_node=select_and_project(query_dict,source_alias,source_table,source_Q_type,use_dict_IO_tuples)
         if selection_node is not None:
             return selection_node
         else:
@@ -343,7 +399,7 @@ def build_query_tree(query_dict,join_order):
     # Cond #2 There are joins
     for i in join_order:
         # get the current top of the join as the checkpoint
-        next_top, updated_intermediate_relations = join_tables(query_dict,i,intermediate_relations)
+        next_top, updated_intermediate_relations = join_tables(query_dict,i,intermediate_relations,use_dict_IO_tuples)
         intermediate_relations=updated_intermediate_relations
     
     return next_top
@@ -367,34 +423,24 @@ def get_nodes_and_edges(node):
     traverse(node)
     return nodes, edges
 
-def generate_join_hashmap(query_input):
+def total_IO_cost(root):
     '''
-    Generates hashmap of joins and important columns
-    - query_input: the query dict
-    returns hashmap of joins
+    Calculate the total IO cost of the query tree by traversing
+    - nodes: the list of nodes in the query tree
+    returns: total IO cost
     '''
-    hashmap = {}
+    total_cost = 0
+    def compute_cost(node):
+        nonlocal total_cost
+        total_cost += node.get_IO_cost()
+        for child in node.get_children():
+            compute_cost(child)
     
-    for join in query_input.get('joins', []):
-        for segment in join:
-            table_alias = segment['alias']
-            on_condition = segment['on']
-            
-            # Add the 'on' condition to the corresponding table alias in the dictionary
-            if table_alias not in hashmap:
-                hashmap[table_alias] = []
-            hashmap[table_alias].append(on_condition)
-    
-    return hashmap
+    compute_cost(root)
+    return total_cost
 # default is [0,1,2,3,4....,n-1] for n-1 joins
 join_order=list(range(len(query_input_1["joins"])))
-'''
-# Build the query tree
-query_tree = build_query_tree(query_input_3,join_order)
 
-# Retrieve nodes and edges
-nodes, edges = get_nodes_and_edges(query_tree)
-'''
 
 items=get_db_metrics()
 print(items)
@@ -417,3 +463,25 @@ for parent_id, child_id in edges:
 
 
 #{'lineitem': 6001215, 'orders': 1500000, 'part': 200000, 'partsupp': 800000, 'customer': 150000, 'supplier': 10000, 'region': 5, 'nation': 25}
+
+'''
+def generate_join_hashmap(query_input):
+
+    Generates hashmap of joins and important columns
+    - query_input: the query dict
+    returns hashmap of joins
+
+    hashmap = {}
+    
+    for join in query_input.get('joins', []):
+        for segment in join:
+            table_alias = segment['alias']
+            on_condition = segment['on']
+            
+            # Add the 'on' condition to the corresponding table alias in the dictionary
+            if table_alias not in hashmap:
+                hashmap[table_alias] = []
+            hashmap[table_alias].append(on_condition)
+    
+    return hashmap
+'''

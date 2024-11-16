@@ -1,3 +1,6 @@
+JOINS=['Hash Join','Nested Loop','Merge Join']
+SCANS=['Seq Scan','Bitmap Heap Scan','Index Scan']
+FILTERS = ['Filter','Hash Cond','Index Cond']
 query_input_1 = {
     'operation': 'SELECT + Join',
     'source': [
@@ -29,13 +32,13 @@ query_input_1 = {
                     'table': 'supplier',
                     'alias': 's',
                     'on': 's_nationkey',
-                    'type': 'Hash'
+                    'type': 'Hash Join'
                 },
                 {
                     'table': 'nation',
                     'alias': 'n',
                     'on': 'n_nationkey',
-                    'type': 'Hash'
+                    'type': 'Hash Join'
                 }
             ],
         
@@ -45,13 +48,13 @@ query_input_1 = {
                     'table': 'nation',
                     'alias': 'n',
                     'on': 'n_regionkey',
-                    'type': 'Hash'
+                    'type': 'Hash Join'
                 },
                 {
                     'table': 'region',
                     'alias': 'r',
                     'on': 'r_regionkey',
-                    'type': 'Hash'
+                    'type': 'Hash Join'
                 }
             ],
     
@@ -61,13 +64,13 @@ query_input_1 = {
                     'table': 'customer',
                     'alias': 'c',
                     'on': 'c_nationkey',
-                    'type': 'Hash'
+                    'type': 'Hash Join'
                 },
                 {
                     'table': 'nation',
                     'alias': 'n',
                     'on': 'n_nationkey',
-                    'type': 'Hash'
+                    'type': 'Hash Join'
                 }
             ],
         

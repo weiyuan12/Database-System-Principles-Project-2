@@ -1,0 +1,20 @@
+Hash Join  (cost=529.08..92454.48 rows=48947712 width=269) (actual time=6.421..5376.897 rows=49151891 loops=1)
+  Hash Cond: (c.c_nationkey = n.n_nationkey)
+  ->  Seq Scan on customer c  (cost=0.00..5675.00 rows=122341 width=33) (actual time=0.006..71.248 rows=122881 loops=1)
+        Filter: (c_acctbal > '1000'::numeric)
+        Rows Removed by Filter: 27119
+  ->  Hash  (cost=404.08..404.08 rows=10000 width=248) (actual time=6.363..6.369 rows=10000 loops=1)
+        Buckets: 16384  Batches: 1  Memory Usage: 1378kB
+        ->  Hash Join  (cost=27.20..404.08 rows=10000 width=248) (actual time=0.040..3.965 rows=10000 loops=1)
+              Hash Cond: (n.n_regionkey = r.r_regionkey)
+              ->  Hash Join  (cost=13.60..363.54 rows=10000 width=148) (actual time=0.024..2.669 rows=10000 loops=1)
+                    Hash Cond: (s.s_nationkey = n.n_nationkey)
+                    ->  Seq Scan on supplier s  (cost=0.00..323.00 rows=10000 width=36) (actual time=0.002..0.730 rows=10000 loops=1)
+                    ->  Hash  (cost=11.60..11.60 rows=160 width=112) (actual time=0.012..0.013 rows=25 loops=1)
+                          Buckets: 1024  Batches: 1  Memory Usage: 10kB
+                          ->  Seq Scan on nation n  (cost=0.00..11.60 rows=160 width=112) (actual time=0.005..0.007 rows=25 loops=1)
+              ->  Hash  (cost=11.60..11.60 rows=160 width=108) (actual time=0.008..0.009 rows=5 loops=1)
+                    Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                    ->  Seq Scan on region r  (cost=0.00..11.60 rows=160 width=108) (actual time=0.004..0.005 rows=5 loops=1)
+Planning Time: 0.506 ms
+Execution Time: 6223.742 ms

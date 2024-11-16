@@ -1,5 +1,4 @@
 import psycopg2
-from graphviz import Digraph
 import tkinter as tk
 from tkinter import ttk
 import re
