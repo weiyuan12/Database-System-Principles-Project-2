@@ -68,7 +68,7 @@ class TreeVisualizer:
         # Draw the root node
         start_x = 500
         start_y = 50
-        self.draw_node(self.nodes[0], start_x, start_y)
+        self.draw_node(self.nodes[0], start_x, start_y,self.use_dict_IO_tuples)
         # Draw edges with updated arrow direction
         for edge in self.edges:
             parent_id, child_id = edge
@@ -171,10 +171,12 @@ class TreeVisualizer:
         else:
             current_scan["type"] = SCANS[0]
         self.run()
-    def draw_node(self, node, x, y, level=0):
+    def draw_node(self, node, x, y, use_dict_IO_tuples,level=0):
         node_id, node_type, value, IO_cost,tuples,Q_type = node
-        
-        text = f"{node_type}: {value}\n IO: {IO_cost}, Tup:{tuples} \n Type: {Q_type}"
+        if(use_dict_IO_tuples):
+            text = f"{node_type}: {value}\n IO: {IO_cost}, Tup:{tuples} \n Type: {Q_type}"
+        else:
+            text = f"{node_type}: {value}\n Est IO: {IO_cost}, Est Tup:{tuples} \n Type: {Q_type}"
         # each node is represented by rectangle
 
         text_width=150
@@ -226,7 +228,7 @@ class TreeVisualizer:
             for child_id in children:
                 child_node = next(n for n in self.nodes if n[0] == child_id)
                 # Recursively draw each child node with increased level
-                self.draw_node(child_node, child_x, y + 80, level + 1)
+                self.draw_node(child_node, child_x, y + 80,self.use_dict_IO_tuples, level + 1)
                 child_x += child_spacing
 
 
