@@ -5,32 +5,33 @@ from tkinter import ttk
 from interface import TreeVisualizer
 sql_query =  '''
 SELECT 
-        C.c_name AS customer_name,
-        O.o_orderkey AS order_id,
-        O.o_orderdate AS order_date,
-        P.p_name AS part_name,
-        S.s_name AS supplier_name,
-        N.n_name AS nation_name,
-        R.r_name AS region_name,
-        L.l_quantity AS quantity,
-        L.l_extendedprice AS extended_price
+        c.c_name AS customer_name,
+        o.o_orderkey AS order_id,
+        o.o_orderdate AS order_date,
+        p.p_name AS part_name,
+        s.s_name AS supplier_name,
+        n.n_name AS nation_name,
+        r.r_name AS region_name,
+        l.l_quantity AS quantity,
+        l.l_extendedprice AS extended_price
     FROM 
-        customer C,
-        orders O,
-        lineitem L,
-        part P,
-        supplier S,
-        nation N,
-        region R
+        customer c,
+        orders o,
+        lineitem l,
+        part p,
+        partsupp ps,
+        supplier s,
+        nation n,
+        region r
     WHERE 
-        C.c_custkey = O.o_custkey
-        AND O.o_orderkey = L.l_orderkey
-        AND L.l_partkey = P.p_partkey
-        AND L.l_suppkey = S.s_suppkey
-        AND C.c_nationkey = N.n_nationkey
-        AND S.s_nationkey = N.n_nationkey
-        AND N.n_regionkey = R.r_regionkey
-        AND P.p_retailprice < 1000
+        c.c_custkey = o.o_custkey
+        AND o.o_orderkey = l.l_orderkey
+        AND l.l_partkey = p.p_partkey
+        AND l.l_suppkey = s.s_suppkey
+        AND p.p_partkey = ps.ps_partkey
+        AND s.s_nationkey = n.n_nationkey
+        AND n.n_regionkey = r.r_regionkey
+        AND p.p_retailprice < 1000
 '''
 
 query_dict = {
@@ -56,7 +57,7 @@ query_dict = {
 tree, original_QEP_formatted=process_query_plan_full(sql_query)
 
 modified_QEP_formatted=preprocess_query(sql_query)
-print(modified_QEP_formatted)
+print("-----",modified_QEP_formatted)
 
 # Root window setup
 
