@@ -107,9 +107,40 @@ def get_unique_count(table, key) -> int:
     except Exception as e:
         print(f"Error: {e}")
 
+def get_no_working_blocks():
+    '''
+    Function to get the number of working blocks in shared_buffers
+    '''
+    try:
+        # Establish the connection
+        conn = psycopg2.connect(
+            dbname=dbname,
+            user=user,
+            password=password,
+            host=host,
+            port=port
+        )
+
+        with conn.cursor() as cur:
+            # SQL query to get the number of working blocks
+            cur.execute("""
+            SELECT
+                setting AS shared_buffers_blocks,
+                setting::bigint * current_setting('block_size')::bigint / (1024 * 1024) AS shared_buffers_size_mb
+            FROM pg_settings
+            WHERE name = 'shared_buffers';
+            """)
+            # Fetch the result
+            result = cur.fetchone()[0]
+            conn.close()
+            return result
+    except Exception as e:
+        print(f"Error: {e}")
+
 
 if __name__ == "__main__":
     row_counts = query_row_counts()
     print(f"Number of tuples in lineitem: {row_counts['lineitem']}")
     unique_cnt = get_unique_count("lineitem", "l_extendedprice")
     print(f"Unique count of lineitem: {unique_cnt}")
+    print(f"Number of working blocks: {get_no_working_blocks()}")
