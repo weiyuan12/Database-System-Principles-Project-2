@@ -54,10 +54,10 @@ scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
 # Create frames for each TreeVisualizer and add them vertically using grid
 frame1 = tk.Frame(scrollable_frame, bg="white", relief=tk.SUNKEN, borderwidth=2)
-frame1.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+frame1.grid(row=0, column=0, padx=5, pady=1, sticky="nsew")
 
 frame2 = tk.Frame(scrollable_frame, bg="white", relief=tk.SUNKEN, borderwidth=2)
-frame2.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
+frame2.grid(row=1, column=0, padx=5, pady=1, sticky="nsew")
 
 # Ensure the grid system expands to fill available space
 scrollable_frame.grid_rowconfigure(0, weight=1)  

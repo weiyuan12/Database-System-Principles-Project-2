@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from whatif import get_nodes_and_edges, build_query_tree,total_IO_cost
 from preprocessing import process_query_plan_full,preprocess_query
-from constants import query_input_1
+from constants import query_input_1,JOINS,SCANS,FILTERS
 #{'lineitem': 6001215, 'orders': 1500000, 'part': 200000, 'partsupp': 800000, 'customer': 150000, 'supplier': 10000, 'region': 5, 'nation': 25}
 
 
@@ -55,6 +55,7 @@ class TreeVisualizer:
         if self.disable_buttons is False:
             self.create_option_buttons(self.options_frame)  # Only create options once
             self.create_join_buttons()
+            self.create_scan_buttons()
         self.node_positions = {}
         # Initial run to display the tree
         self.run()
@@ -86,39 +87,86 @@ class TreeVisualizer:
         # Add the updated statistics as a new label
         if self.disable_buttons is True:
             mode= "Original"
+            self.bottom_label = tk.Label(
+            self.options_frame,
+            text=f"{mode}: \nTotal IO cost: {tree_IO_cost} \nActual tuples: {est_tuples}",
+            anchor="e",
+            bg="lightgray",
+            font=("Arial", 10,"bold")
+        )
         else:
             mode = "Modified"
-        self.bottom_label = tk.Label(
-            self.options_frame,
-            text=f"{mode}: \n Total IO cost: {tree_IO_cost} \nEstimated tuples: {est_tuples}",
-            anchor="w",
-            bg="lightgray",
-            font=("Arial", 10)
-        )
-        self.bottom_label.pack(fill=tk.X, padx=5, pady=5)
+            self.bottom_label = tk.Label(
+                self.options_frame,
+                text=f"{mode}: \nEstimated IO cost: {tree_IO_cost} \nEstimated tuples: {est_tuples}",
+                anchor="e",
+                bg="lightgray",
+                font=("Arial", 10,"bold")
+            )
+        self.bottom_label.pack(fill=tk.X, padx=5, pady=1, side="right")
     def create_join_buttons(self):
         """Create buttons to change join types."""
         for idx, join in enumerate(self.query_dict["joins"]):
-            join_label = f"Join {join[0]['table']}={join[1]['table']}"
+            join_label = f"JOIN {join[0]['table']}={join[1]['table']}"
             btn = tk.Button(
                 self.options_frame,
                 text=join_label,
                 command=lambda i=idx: self.update_join_type(i),
-                padx=5
+                padx=1,
+                width=10, 
+                height=1,  
+                font=("Arial", 8) 
             )
-            btn.pack(side=tk.LEFT, padx=5, pady=5)
-
+            btn.pack(side=tk.LEFT, padx=2, pady=2)
+    def create_scan_buttons(self):
+        """Create buttons to change scan types."""
+        for idx, source in enumerate(self.query_dict["source"]):
+            source_label = f"SOURCE {source['alias']}"
+            btn = tk.Button(
+                self.options_frame,
+                text=source_label,
+                command=lambda i=idx: self.update_scan_types("source",i),
+                padx=1,
+                width=10, 
+                height=1,  
+                font=("Arial", 8) 
+            )
+            btn.pack(side=tk.LEFT, padx=2, pady=2)
+        for idx, select in enumerate(self.query_dict["selects"]):
+            select_label = f"SELECT {select['alias']}"
+            btn = tk.Button(
+                self.options_frame,
+                text=select_label,
+                command=lambda i=idx: self.update_scan_types("selects",i),
+                padx=1,
+                width=10, 
+                height=1,  
+                font=("Arial", 8) 
+            )
+            btn.pack(side=tk.LEFT, padx=1, pady=1)
+    
     def update_join_type(self, join_index):
         """Toggle the join type for the selected join."""
         current_join = self.query_dict["joins"][join_index]
         for join in current_join:
             # Toggle between join types (Hash and Nested Loop as an example)
-            if join["type"] == "Hash Join":
-                join["type"] = "Nested Loop"
-            elif join["type"] == "Nested Loop":
-                join["type"] = "Hash Join"
+            if join["type"] == JOINS[0]:
+                join["type"] = JOINS[1]
+            elif join["type"] == JOINS[1]:
+                join["type"] = JOINS[2]
+            else:
+                join["type"] = JOINS[0]
         self.run()
+    def update_scan_types(self,mode,index):
+        current_scan = self.query_dict[mode][index]
 
+        if current_scan["type"] == SCANS[0]:
+            current_scan["type"] = SCANS[1]
+        elif current_scan["type"] == SCANS[1]:
+            current_scan["type"] = SCANS[2]
+        else:
+            current_scan["type"] = SCANS[0]
+        self.run()
     def draw_node(self, node, x, y, level=0):
         node_id, node_type, value, IO_cost,tuples,Q_type = node
         
@@ -179,22 +227,20 @@ class TreeVisualizer:
 
 
     def create_option_buttons(self, frame):
-        # Example buttons; customize for each what-if option
-        options = ["Option 1", "Option 2", "Option 3"]
-        for option in options:
-            btn = tk.Button(frame, text=option, command=lambda o=option: self.update_option(o))
-            btn.pack(side=tk.LEFT, padx=5, pady=5)
+        options = ["Rotate Join Order ->", "<- Rotate Join Order"]
+        btn = tk.Button(frame, text=options[0], command=lambda o=options[0]: self.rotate_join_order("left"))
+        btn.pack(side=tk.LEFT, padx=5, pady=5)
+        btn = tk.Button(frame, text=options[1], command=lambda o=options[0]: self.rotate_join_order("right"))
+        btn.pack(side=tk.LEFT, padx=5, pady=5)
 
-    def update_option(self, option):
-        print(f"Selected option: {option}")
-        # Implement additional functionality for option updates here
-        self.rotate_join_order()
-
-    def rotate_join_order(self):
-        # Shift the join_order array left by 1
+    def rotate_join_order(self, direction):
+        """Shift the join_order array. Direction can be 'left' or 'right'."""
         if self.join_order:
-            self.join_order.append(self.join_order.pop(0))
-        self.run()
+            if direction == "left":
+                self.join_order.append(self.join_order.pop(0))
+            elif direction == "right":
+                self.join_order.insert(0, self.join_order.pop())
+            self.run()
     def run(self):
         """Runs the visualization setup and updates tree visualization."""
         self.create_tree_visualization()
