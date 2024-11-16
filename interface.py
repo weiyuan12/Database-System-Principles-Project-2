@@ -154,6 +154,8 @@ class TreeVisualizer:
                 join["type"] = JOINS[1]
             elif join["type"] == JOINS[1]:
                 join["type"] = JOINS[2]
+            elif join["type"] == JOINS[2]:
+                join["type"] = JOINS[3]
             else:
                 join["type"] = JOINS[0]
         self.run()
@@ -164,6 +166,8 @@ class TreeVisualizer:
             current_scan["type"] = SCANS[1]
         elif current_scan["type"] == SCANS[1]:
             current_scan["type"] = SCANS[2]
+        elif current_scan["type"] == SCANS[2]:
+            current_scan["type"] = SCANS[3]
         else:
             current_scan["type"] = SCANS[0]
         self.run()
