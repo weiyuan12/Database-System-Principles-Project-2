@@ -1,8 +1,13 @@
 
 from preprocessing import process_query_plan_full,preprocess_query
 import tkinter as tk
+from tkinter import scrolledtext  # Import scrolledtext for multi-line input
 from tkinter import ttk
 from interface import TreeVisualizer
+from pgconn import query_row_counts,get_no_working_blocks
+M=int(get_no_working_blocks())
+Tuples=query_row_counts()
+
 sql_query =  '''
 SELECT 
         c.c_name AS customer_name,
@@ -33,26 +38,31 @@ SELECT
         AND n.n_regionkey = r.r_regionkey
         AND p.p_retailprice < 1000
 '''
+sql_query =  """
+    SELECT 
+        C.c_custkey AS customer_id,
+        C.c_name AS customer_name,
+        C.c_acctbal AS customer_balance,
+        N.n_name AS nation_name,
+        R.r_name AS region_name,
+        S.s_name AS supplier_name,
+        S.s_acctbal AS supplier_balance
+    FROM customer C, nation N, region R, supplier S
+    WHERE C.c_nationkey = N.n_nationkey
+    AND N.n_regionkey = R.r_regionkey
+    AND S.s_nationkey = N.n_nationkey
+    AND C.c_acctbal > 1000
+    AND S.s_nationkey < 2000
+    """
+sql_query =  """
+    SELECT 
+        C.c_custkey AS customer_id,
+    FROM customer C
+    WHERE C.c_acctbal > 1000
+    """
 
-query_dict = {
-    'operation': 'SELECT + Join',
-    'source': [
-        {'table': 'customer', 'alias': 'c', 'type': 'Seq Scan'},
-        {'table': 'orders', 'alias': 'o', 'type': 'Seq Scan'},
-        {'table': 'lineitem', 'alias': 'l', 'type': 'Seq Scan'},
-        {'table': 'part', 'alias': 'p', 'type': 'Seq Scan'},
-        {'table': 'supplier', 'alias': 's', 'type': 'Seq Scan'},
-        {'table': 'nation', 'alias': 'n', 'type': 'Seq Scan'},
-        {'table': 'region', 'alias': 'r', 'type': 'Seq Scan'}
-    ],
-    'joins': [
-        [
-            {'table': 'customer', 'alias': 'c', 'on': 'c_custkey', 'type': 'Hash Join'},
-            {'table': 'orders', 'alias': 'o', 'on': 'o_custkey', 'type': 'Hash Join'}
-        ]
-    ],
-    'selects': []
-}
+
+
 
 tree, original_QEP_formatted=process_query_plan_full(sql_query)
 
@@ -113,9 +123,15 @@ def set_min_size_based_on_canvas():
 # Set minsize once the window is loaded and canvas size is available
 root.after(100, set_min_size_based_on_canvas)
 
+#(Optional, for much fairer comparison) Update the tuples with the data from postgres
+for item in original_QEP_formatted["source"]:
+    table_name = item["table"]
+    if table_name in Tuples:
+        Tuples[table_name] = item["tuples"]
 # Add TreeVisualizer instances to the respective frames
-visualizer1 = TreeVisualizer(frame1, original_QEP_formatted, use_dict_IO_tuples=True, disable_buttons=True,screen_ratio=3)
-visualizer2 = TreeVisualizer(frame2, modified_QEP_formatted, use_dict_IO_tuples=False, disable_buttons=False,screen_ratio=3)
+visualizer1 = TreeVisualizer(frame1, original_QEP_formatted, use_dict_IO_tuples=True, disable_buttons=True,screen_ratio=2.5,Tuples=Tuples,M=M)
+
+visualizer2 = TreeVisualizer(frame2, modified_QEP_formatted, use_dict_IO_tuples=False, disable_buttons=False,screen_ratio=2.5,Tuples=Tuples,M=M)
 
 # Run the application
 root.mainloop()

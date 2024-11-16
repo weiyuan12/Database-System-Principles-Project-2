@@ -266,7 +266,7 @@ def extract_cost_and_rows(details):
     # Match patterns like "cost=529.08..92821.79 rows=49132944"
     match = re.search(r'cost=([\d.]+)\.\.([\d.]+) rows=(\d+)', details)
     if match:
-        io_cost = float(match.group(1))  # Extract initial cost
+        io_cost = float(match.group(2))  # Extract initial cost
         tuples_returned = int(match.group(3))  # Extract rows
         return io_cost, tuples_returned
     return None, None
@@ -434,12 +434,13 @@ def parse_execution_plan_to_dict(plan):
                                 }
                             ]
                             result['joins'].append(join_info)
-        
         # Traverse children
         for child in node.get('children', []):
             traverse_tree(child)
     
     traverse_tree(tree)
+    ## Reverse the joins since we want the order to be top down
+    result['joins'] = result['joins'][::-1]
     return result
 
 def process_query_plan_full(sql_query):

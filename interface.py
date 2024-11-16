@@ -7,7 +7,7 @@ from constants import query_input_1,JOINS,SCANS,FILTERS
 
 
 class TreeVisualizer:
-    def __init__(self, root,query_dict,use_dict_IO_tuples,disable_buttons,screen_ratio):
+    def __init__(self, root,query_dict,use_dict_IO_tuples,disable_buttons,screen_ratio,Tuples,M):
         self.root = root
         self.nodes = None
         self.edges = None
@@ -16,7 +16,8 @@ class TreeVisualizer:
         self.join_order = list(range(len(query_dict["joins"])))
         self.disable_buttons = disable_buttons
         self.screen_ratio = screen_ratio
-        print(self.root)
+        self.Tuples = Tuples
+        self.M=M
          # Get the screen dimensions
         screen_width = root.winfo_screenwidth()
         screen_height = root.winfo_screenheight()
@@ -62,7 +63,7 @@ class TreeVisualizer:
 
     def create_tree_visualization(self):
         self.canvas.delete("all")
-        query_tree = build_query_tree(self.query_dict, self.join_order,self.use_dict_IO_tuples)
+        query_tree = build_query_tree(self.query_dict, self.join_order,self.use_dict_IO_tuples,self.Tuples,self.M)
         self.nodes, self.edges = get_nodes_and_edges(query_tree)
         
         # Draw the root node
@@ -78,8 +79,7 @@ class TreeVisualizer:
                                     parent_pos[0], parent_pos[1] + 30, arrow=tk.LAST)
         # Add the statistics
         tree_IO_cost=total_IO_cost(query_tree)
-        est_tuples = 0
-        actual_tuples = 0
+        est_tuples = query_tree.get_tuples()
         # Remove old bottom label if it exists
         if hasattr(self, 'bottom_label') and self.bottom_label.winfo_exists():
             self.bottom_label.destroy()
@@ -89,7 +89,7 @@ class TreeVisualizer:
             mode= "Original"
             self.bottom_label = tk.Label(
             self.options_frame,
-            text=f"{mode}: \nTotal IO cost: {tree_IO_cost} \nActual tuples: {est_tuples}",
+            text=f"{mode}: \nActual IO cost: {tree_IO_cost} \nActual tuples: {est_tuples}",
             anchor="e",
             bg="lightgray",
             font=("Arial", 10,"bold")
@@ -257,7 +257,6 @@ class TreeVisualizer:
 
 
 '''
-
 root = tk.Tk()
 root.title("Query Tree Visualization")
 sql_query =  """
