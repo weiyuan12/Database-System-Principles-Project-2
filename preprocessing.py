@@ -110,6 +110,9 @@ def preprocess_query(sql_query):
     if metadata["joins"]:
         metadata["operation"] += " + Join"
 
+    with open("query_plan_structured.json", "w", encoding='utf-8') as f:
+        json.dump(structured_format, f, indent=2)
+
     return metadata
 
 
@@ -294,7 +297,6 @@ def extract_join_condition(condition, is_index_join = False):
 def parse_execution_plan_to_dict(plan):
     """Parse execution plan and convert to structured dictionary format"""
     tree = parse_execution_plan(plan)  # Using your existing parser
-    print(tree)
     result = {
         'operation': 'SELECT + Join',
         'source': [],
@@ -342,24 +344,22 @@ def parse_execution_plan_to_dict(plan):
                                 'tuples': tuples_returned
                             }
                             result['selects'].append(select_info)
-        print("----------", alias)
         # Handle Join nodes
         if node['type'] in JOINS:
+            print(node['type'])
             io_cost, tuples_returned = extract_cost_and_rows(node['details'])
             table, alias = extract_table_info(node['details'])
-            print(alias)
             if 'conditions' in node:
                 for condition in node['conditions']:
-                    print(node['type'], condition)
                     if('AND' in condition or 'OR' in condition):
                         subconditions = re.split(r'\s+(?:AND|OR)\s+', condition, flags=re.IGNORECASE)
                         for subcondition in subconditions:
-                            if node['type'] == "Index Scan":
+                            if node['type'] == "Index Scan" or node['type'] == "Index Only Scan":
                                 left_alias, left_col, right_alias, right_col = extract_join_condition(subcondition, is_index_join=True)
                                 left_alias = alias
                             else:
                                 left_alias, left_col, right_alias, right_col = extract_join_condition(subcondition)
-                            if left_alias or right_alias:
+                            if left_alias and right_alias:
                                 join_info = [
                                     {
                                         'table': next((s['table'] for s in result['source'] 
@@ -382,13 +382,13 @@ def parse_execution_plan_to_dict(plan):
                                 ]
                                 result['joins'].append(join_info)
                     elif '>' in condition or '<' in condition or '=' in condition:
-                        if node['type'] == "Index Scan":
+                        if node['type'] == "Index Scan" or node['type'] == "Index Only Scan":
                             left_alias, left_col, right_alias, right_col = extract_join_condition(condition, is_index_join=True)
                             left_alias = alias
-                            print(left_alias, left_col, right_alias, right_col)
                         else:
                             left_alias, left_col, right_alias, right_col = extract_join_condition(condition)
-                        if left_alias or right_alias:
+                        if left_alias and right_alias:
+                            print (node['details'])
                             join_info = [
                                 {
                                     'table': next((s['table'] for s in result['source'] 
@@ -409,7 +409,6 @@ def parse_execution_plan_to_dict(plan):
                                     'tuples': tuples_returned
                                 }
                             ]
-                            print(join_info)
                             result['joins'].append(join_info)
         
         # Traverse children
@@ -447,9 +446,6 @@ if __name__ == "__main__":
         o.o_orderkey AS order_id,
         o.o_orderdate AS order_date,
         p.p_name AS part_name,
-        s.s_name AS supplier_name,
-        n.n_name AS nation_name,
-        r.r_name AS region_name,
         l.l_quantity AS quantity,
         l.l_extendedprice AS extended_price
     FROM 
@@ -457,20 +453,12 @@ if __name__ == "__main__":
         orders o,
         lineitem l,
         part p,
-        partsupp ps,
-        supplier s,
-        nation n,
-        region r
+        partsupp ps
     WHERE 
         c.c_custkey = o.o_custkey
         AND o.o_orderkey = l.l_orderkey
         AND l.l_partkey = p.p_partkey
-        AND l.l_suppkey = s.s_suppkey
         AND p.p_partkey = ps.ps_partkey
-        AND ps.ps_suppkey = s.s_suppkey
-        AND c.c_nationkey = n.n_nationkey
-        AND s.s_nationkey = n.n_nationkey
-        AND n.n_regionkey = r.r_regionkey
         AND p.p_retailprice < 1000
     """
     """
@@ -488,15 +476,6 @@ if __name__ == "__main__":
     AND S.s_nationkey = N.n_nationkey
     AND C.c_acctbal > 1000
     """
-
-    '''
-    SELECT o.o_orderkey, o.o_orderdate, c.c_name, n.n_name AS nation, r.r_name AS region
-    FROM orders o, customer c, nation n, region r
-    WHERE o.o_custkey = c.c_custkey
-    AND c.c_nationkey = n.n_nationkey
-    AND n.n_regionkey = r.r_regionkey
-    AND C.age > 25;    
-    '''
 
     '''
     SELECT 
@@ -531,35 +510,6 @@ if __name__ == "__main__":
         AND p.p_retailprice < 1000
     '''
     
-    
-    '''
-    SELECT C.name, O.id, P.description 
-    FROM customer C, orders O, product P 
-    WHERE C.c_custkey = O.o_custkey 
-      AND O.o_productkey = P.p_productkey 
-      AND C.age > 25
-      AND P.price < 100
-    '''
-
-    '''
-    SELECT C.name, O.id FROM customer C, orders O WHERE C.c_custkey = O.o_custkey AND C.age > 25
-    '''
-
-    '''
-    SELECT C.name, O.id, P.description, S.stock
-    FROM customer C, orders O, product P, supplier S
-    WHERE C.c_custkey = O.o_custkey 
-    AND O.o_productkey = P.p_productkey 
-    AND P.p_supplierkey = S.s_supplierkey
-    AND C.age > 25
-    AND P.price < 100
-    AND S.rating > 4
-    '''
-    '''
-    SELECT C.name
-    FROM customer C
-    WHERE C.age > 25;
-    '''
     #metadata = preprocess_query(sql_query)
     #print("Parsed Metadata:", metadata)
    
