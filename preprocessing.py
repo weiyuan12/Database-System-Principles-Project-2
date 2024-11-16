@@ -143,7 +143,7 @@ def parse_execution_plan(plan):
                 'children': []
             }
            
-            if indent_level == 0:
+            if root == None:
                 root = new_node
             else:
                 if stack:
@@ -246,23 +246,38 @@ def extract_table_info(details):
     import re
     
     # Match pattern like "Seq Scan on customer c" or "Seq Scan on customer"
-    match = re.search(r'(?:Seq Scan|Hash Join) on (\w+)(?:\s+(\w+))?', details)
-    if match:
-        table = match.group(1)
-        alias = match.group(2) if match.group(2) else table[0]  # Use first letter as alias if not specified
-        return table, alias
+    patterns = [
+        r'(?:Index Scan using \w+ on|Index Only Scan using \w+ on|Seq Scan on|Hash Join on) (\w+)(?:\s+(\w+))?',
+        r'Index Scan.*?on (\w+)(?:\s+(\w+))?'
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, details)
+        if match:
+            table = match.group(1)
+            alias = match.group(2) if match.group(2) else table[0]
+            return table, alias
     return None, None
 
-def extract_join_condition(condition):
+def extract_join_condition(condition, is_index_join = False):
     """Extract table aliases and columns from join conditions"""
     if not condition:
         return None, None, None, None
     
     # Remove parentheses and split on equals
     condition = condition.replace('(', '').replace(')', '')
+    print(condition)
     left, right = condition.split('=')
     
     # Extract table alias and column for left side
+
+    if is_index_join == True:
+        right = right.strip()
+        right_parts = right.split('.')
+        right_alias = right_parts[0].strip()
+        right_col = right_parts[1].strip()
+        return None, left.strip(), right_alias ,  right_col
+    
     left = left.strip()
     left_parts = left.split('.')
     left_alias = left_parts[0].strip()
@@ -279,7 +294,7 @@ def extract_join_condition(condition):
 def parse_execution_plan_to_dict(plan):
     """Parse execution plan and convert to structured dictionary format"""
     tree = parse_execution_plan(plan)  # Using your existing parser
-    
+    print(tree)
     result = {
         'operation': 'SELECT + Join',
         'source': [],
@@ -291,6 +306,7 @@ def parse_execution_plan_to_dict(plan):
         if not node:
             return
         io_cost, tuples_returned = extract_cost_and_rows(node['details'])
+        alias = None
         # Handle Seq Scan nodes (source tables)
         if node['type'] in SCANS:
             table, alias = extract_table_info(node['details'])
@@ -305,7 +321,7 @@ def parse_execution_plan_to_dict(plan):
                 result['source'].append(source_info)
             
             # Handle filter conditions for selects
-            if 'conditions' in node:
+            if 'conditions' in node and node['type'] != "Index Scan":
                 for condition in node['conditions']:
                     if '>' in condition or '<' in condition or '=' in condition:
                         parts = condition.split('>')
@@ -326,35 +342,75 @@ def parse_execution_plan_to_dict(plan):
                                 'tuples': tuples_returned
                             }
                             result['selects'].append(select_info)
-        
+        print("----------", alias)
         # Handle Join nodes
-        elif node['type'] in JOINS:
+        if node['type'] in JOINS:
             io_cost, tuples_returned = extract_cost_and_rows(node['details'])
+            table, alias = extract_table_info(node['details'])
+            print(alias)
             if 'conditions' in node:
                 for condition in node['conditions']:
-                    left_alias, left_col, right_alias, right_col = extract_join_condition(condition)
-                    if left_alias and right_alias:
-                        join_info = [
-                            {
-                                'table': next((s['table'] for s in result['source'] 
-                                             if s['alias'] == left_alias), left_alias),
-                                'alias': left_alias,
-                                'on': left_col,
-                                'type': node['type'],
-                                'IO_cost': io_cost,
-                                'tuples': tuples_returned
-                            },
-                            {
-                                'table': next((s['table'] for s in result['source'] 
-                                             if s['alias'] == right_alias), right_alias),
-                                'alias': right_alias,
-                                'on': right_col,
-                                'type': node['type'],
-                                'IO_cost': io_cost,
-                                'tuples': tuples_returned
-                            }
-                        ]
-                        result['joins'].append(join_info)
+                    print(node['type'], condition)
+                    if('AND' in condition or 'OR' in condition):
+                        subconditions = re.split(r'\s+(?:AND|OR)\s+', condition, flags=re.IGNORECASE)
+                        for subcondition in subconditions:
+                            if node['type'] == "Index Scan":
+                                left_alias, left_col, right_alias, right_col = extract_join_condition(subcondition, is_index_join=True)
+                                left_alias = alias
+                            else:
+                                left_alias, left_col, right_alias, right_col = extract_join_condition(subcondition)
+                            if left_alias or right_alias:
+                                join_info = [
+                                    {
+                                        'table': next((s['table'] for s in result['source'] 
+                                                    if s['alias'] == left_alias), left_alias),
+                                        'alias': left_alias,
+                                        'on': left_col,
+                                        'type': node['type'],
+                                        'IO_cost': io_cost,
+                                        'tuples': tuples_returned
+                                    },
+                                    {
+                                        'table': next((s['table'] for s in result['source'] 
+                                                    if s['alias'] == right_alias), right_alias),
+                                        'alias': right_alias,
+                                        'on': right_col,
+                                        'type': node['type'],
+                                        'IO_cost': io_cost,
+                                        'tuples': tuples_returned
+                                    }
+                                ]
+                                result['joins'].append(join_info)
+                    elif '>' in condition or '<' in condition or '=' in condition:
+                        if node['type'] == "Index Scan":
+                            left_alias, left_col, right_alias, right_col = extract_join_condition(condition, is_index_join=True)
+                            left_alias = alias
+                            print(left_alias, left_col, right_alias, right_col)
+                        else:
+                            left_alias, left_col, right_alias, right_col = extract_join_condition(condition)
+                        if left_alias or right_alias:
+                            join_info = [
+                                {
+                                    'table': next((s['table'] for s in result['source'] 
+                                                if s['alias'] == left_alias), left_alias),
+                                    'alias': left_alias,
+                                    'on': left_col,
+                                    'type': node['type'],
+                                    'IO_cost': io_cost,
+                                    'tuples': tuples_returned
+                                },
+                                {
+                                    'table': next((s['table'] for s in result['source'] 
+                                                if s['alias'] == right_alias), right_alias),
+                                    'alias': right_alias,
+                                    'on': right_col,
+                                    'type': node['type'],
+                                    'IO_cost': io_cost,
+                                    'tuples': tuples_returned
+                                }
+                            ]
+                            print(join_info)
+                            result['joins'].append(join_info)
         
         # Traverse children
         for child in node.get('children', []):
@@ -386,6 +442,38 @@ def process_query_plan_full(sql_query):
 # Example usage
 if __name__ == "__main__":
     sql_query =  """
+    SELECT 
+        c.c_name AS customer_name,
+        o.o_orderkey AS order_id,
+        o.o_orderdate AS order_date,
+        p.p_name AS part_name,
+        s.s_name AS supplier_name,
+        n.n_name AS nation_name,
+        r.r_name AS region_name,
+        l.l_quantity AS quantity,
+        l.l_extendedprice AS extended_price
+    FROM 
+        customer c,
+        orders o,
+        lineitem l,
+        part p,
+        partsupp ps,
+        supplier s,
+        nation n,
+        region r
+    WHERE 
+        c.c_custkey = o.o_custkey
+        AND o.o_orderkey = l.l_orderkey
+        AND l.l_partkey = p.p_partkey
+        AND l.l_suppkey = s.s_suppkey
+        AND p.p_partkey = ps.ps_partkey
+        AND ps.ps_suppkey = s.s_suppkey
+        AND c.c_nationkey = n.n_nationkey
+        AND s.s_nationkey = n.n_nationkey
+        AND n.n_regionkey = r.r_regionkey
+        AND p.p_retailprice < 1000
+    """
+    """
     SELECT 
         C.c_custkey AS customer_id,
         C.c_name AS customer_name,
@@ -439,9 +527,8 @@ if __name__ == "__main__":
         AND ps.ps_suppkey = s.s_suppkey
         AND c.c_nationkey = n.n_nationkey
         AND s.s_nationkey = n.n_nationkey
-        AND n.n_regionkey = r.r_regionkey;
-        AND P.price < 1000
-        AND S.rating > 4 
+        AND n.n_regionkey = r.r_regionkey
+        AND p.p_retailprice < 1000
     '''
     
     

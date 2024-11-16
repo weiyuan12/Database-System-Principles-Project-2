@@ -1,5 +1,5 @@
-JOINS=['Hash Join','Nested Loop','Merge Join']
-SCANS=['Seq Scan','Bitmap Heap Scan','Index Scan']
+JOINS=['Hash Join','Nested Loop','Merge Join', "Index Scan"]
+SCANS=['Seq Scan','Bitmap Heap Scan','Index Scan', 'Index Only Scan']
 FILTERS = ['Filter','Hash Cond','Index Cond']
 query_input_1 = {
     'operation': 'SELECT + Join',
