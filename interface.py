@@ -3,6 +3,7 @@ from tkinter import ttk
 from whatif import get_nodes_and_edges, build_query_tree,total_IO_cost
 from preprocessing import process_query_plan_full,preprocess_query
 from constants import query_input_1,JOINS,SCANS,FILTERS
+import itertools
 #{'lineitem': 6001215, 'orders': 1500000, 'part': 200000, 'partsupp': 800000, 'customer': 150000, 'supplier': 10000, 'region': 5, 'nation': 25}
 
 
@@ -14,6 +15,9 @@ class TreeVisualizer:
         self.query_dict = query_dict
         self.use_dict_IO_tuples=use_dict_IO_tuples
         self.join_order = list(range(len(query_dict["joins"])))
+        self.original_join_order = list(range(len(query_dict["joins"])))
+        self.permutations = itertools.permutations(self.join_order)
+        self.current_permutation=None
         self.disable_buttons = disable_buttons
         self.screen_ratio = screen_ratio
         self.Tuples = Tuples
@@ -61,6 +65,7 @@ class TreeVisualizer:
             self.create_join_buttons()
             self.create_scan_buttons()
         self.node_positions = {}
+        self.next_permutation()
         # Initial run to display the tree
         self.run()
 
@@ -68,7 +73,6 @@ class TreeVisualizer:
         self.canvas.delete("all")
         query_tree = build_query_tree(self.query_dict, self.join_order,self.use_dict_IO_tuples,self.Tuples,self.M)
         self.nodes, self.edges = get_nodes_and_edges(query_tree)
-        
         # Draw the root node
         start_x = 500
         start_y = 50
@@ -243,19 +247,28 @@ class TreeVisualizer:
 
     def create_option_buttons(self, frame):
         options = ["Rotate Join Order ->", "<- Rotate Join Order"]
-        btn = tk.Button(frame, text=options[0], command=lambda o=options[0]: self.rotate_join_order("left"))
+        
+        btn = tk.Button(frame, text=options[0], command=lambda o=options[0]: self.next_permutation())
         btn.pack(side=tk.LEFT, padx=5, pady=5)
-        btn = tk.Button(frame, text=options[1], command=lambda o=options[0]: self.rotate_join_order("right"))
-        btn.pack(side=tk.LEFT, padx=5, pady=5)
-
-    def rotate_join_order(self, direction):
-        """Shift the join_order array. Direction can be 'left' or 'right'."""
-        if self.join_order:
-            if direction == "left":
-                self.join_order.append(self.join_order.pop(0))
-            elif direction == "right":
-                self.join_order.insert(0, self.join_order.pop())
+    def next_permutation(self):
+        """Move to the next permutation in the list."""
+        try:
+            # Get the next permutation
+            self.current_permutation = next(self.permutations)
+            self.join_order = list(self.current_permutation)  # Update the current order
+            print(list(itertools.permutations(self.original_join_order)))
             self.run()
+        except StopIteration:
+            print("reset")
+            self.reset_permutations()
+            self.current_permutation = next(self.permutations)
+            self.join_order = list(self.current_permutation)
+            self.run()
+
+    def reset_permutations(self):
+        self.permutations = itertools.permutations(self.original_join_order)
+        self.current_permutation = self.original_join_order
+        
     def run(self):
         """Runs the visualization setup and updates tree visualization."""
         self.create_tree_visualization()
