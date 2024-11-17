@@ -8,6 +8,32 @@ Ensure that the postgres database is up and running before running the applicati
 ```bash
 python project.py
 ```
+### Running SQL queries
+Due to the nature of our query parser, the SQL queries passed into interface.py need to follow a standard syntax. Join operations are done using the WHERE CLAUSE instead of the JOIN keyword. If there are syntax errors, there will be no output. Below is an example of a acceptable SQL query. More examples are found in project.py
+```bash
+SELECT 
+        c.c_name AS customer_name,
+        o.o_orderkey AS order_id,
+        o.o_orderdate AS order_date,
+        p.p_name AS part_name,
+        s.s_name AS supplier_name,
+        l.l_quantity AS quantity,
+        l.l_extendedprice AS extended_price
+    FROM 
+        customer c,
+        orders o,
+        lineitem l,
+        part p,
+        partsupp ps,
+        supplier s
+    WHERE 
+        c.c_custkey = o.o_custkey
+        AND o.o_orderkey = l.l_orderkey
+        AND l.l_partkey = p.p_partkey
+        AND l.l_suppkey = s.s_suppkey
+        AND p.p_partkey = ps.ps_partkey
+        AND p.p_retailprice < 1000
+```
 
 ## Installing dependencies
 ```bash
