@@ -422,18 +422,44 @@ def build_query_tree(query_dict,join_order,use_dict_IO_tuples,Tuples,M):
         source_Q_type=query_dict["source"][0]["type"]
         
         selection_node=select_and_project(query_dict,source_alias,source_table,source_Q_type,use_dict_IO_tuples,Tuples)
-        print(selection_node)
         if selection_node is not None:
             return selection_node,[]
         else:
-            return QueryNode("Source",source_alias),[]
-
+            source_node=QueryNode("Source",source_alias)
+            if use_dict_IO_tuples==False:
+                tuples_value = Tuples.get(source_table)
+                if tuples_value is not None:
+                    source_node.set_tuples(tuples_value)
+                    
+                    for i in range(len(query_dict['source'])):
+                        if query_dict['source'][i]['alias'].lower()==(source_alias.lower()):
+                            IO_cost = set_source_IO(query_dict['source'][i],source_table)
+                            source_node.set_IO_cost(IO_cost)
+                            break
+                else:
+                    for key in Tuples:
+                        if key.lower().startswith(source_alias.lower()):
+                            source_node.set_tuples(Tuples[key])
+                            # key match
+                            for i in range(len(query_dict['source'])):
+                                if query_dict['source'][i]['alias'].lower()==(source_alias.lower()):
+                                    #print("alias")
+                                    IO_cost = set_source_IO(query_dict['source'][i],source_table)
+                                    source_node.set_IO_cost(IO_cost)
+                            break
+            else:
+                for i in range(len(query_dict["source"])):
+                    if query_dict["source"][i]["alias"].lower().startswith(source_alias.lower()):
+                        source_node.set_tuples(query_dict["source"][i]["tuples"])
+                        source_node.set_IO_cost(float(query_dict["source"][i]["IO_cost"]))
+        source_node.set_Q_Type(source_Q_type)
+    
+        return source_node,[]
     # Cond #2 There are joins
     for i in join_order:
         # get the current top of the join as the checkpoint
         next_top, updated_intermediate_relations = join_tables(query_dict,i,intermediate_relations,use_dict_IO_tuples,Tuples,M)
         intermediate_relations=updated_intermediate_relations
-        print(intermediate_relations)
         #print(next_top)
         
     return next_top,intermediate_relations

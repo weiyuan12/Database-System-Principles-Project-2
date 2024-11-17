@@ -60,6 +60,68 @@ SELECT
         AND p.p_partkey = ps.ps_partkey
         AND p.p_retailprice < 1000
 '''
+
+## Example
+sql_query = '''
+SELECT
+       C.c_custkey AS customer_id,
+       C.c_name AS customer_name,
+       C.c_acctbal AS customer_balance,
+       N.n_name AS nation_name,
+       R.r_name AS region_name,
+       S.s_name AS supplier_name,
+       S.s_acctbal AS supplier_balance
+   FROM customer C, nation N, region R, supplier S
+   WHERE C.c_nationkey = N.n_nationkey
+   AND N.n_regionkey = R.r_regionkey
+   AND S.s_nationkey = N.n_nationkey
+   AND C.c_acctbal > 1000
+   AND S.s_nationkey < 2000
+
+'''
+## Invalid tree example
+sql_query = '''
+
+SELECT 
+        c.c_name AS customer_name,
+        o.o_orderkey AS order_id,
+        o.o_orderdate AS order_date,
+        p.p_name AS part_name,
+        s.s_name AS supplier_name,
+        l.l_quantity AS quantity,
+        l.l_extendedprice AS extended_price
+    FROM 
+        customer c,
+        orders o,
+        lineitem l,
+        part p,
+        partsupp ps,
+        supplier s
+    WHERE 
+        c.c_custkey = o.o_custkey
+        AND o.o_orderkey = l.l_orderkey
+        AND l.l_partkey = p.p_partkey
+        AND l.l_suppkey = s.s_suppkey
+        AND p.p_partkey = ps.ps_partkey
+        AND p.p_retailprice < 1000
+'''
+## Basic range query
+sql_query =  '''
+SELECT 
+        c.c_name AS customer_name
+    FROM 
+        customer c
+    WHERE 
+        c.c_acctbal<1000
+'''
+## Basic no range query
+sql_query =  '''
+SELECT 
+        c.c_name AS customer_name
+    FROM 
+        customer c
+'''
+##
 # Function to open the overlay input box
 def open_sql_input_overlay():
     # Create a Toplevel window for the SQL input box
