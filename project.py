@@ -61,24 +61,8 @@ SELECT
         AND p.p_retailprice < 1000
 '''
 
-## Example
-sql_query = '''
-SELECT
-       C.c_custkey AS customer_id,
-       C.c_name AS customer_name,
-       C.c_acctbal AS customer_balance,
-       N.n_name AS nation_name,
-       R.r_name AS region_name,
-       S.s_name AS supplier_name,
-       S.s_acctbal AS supplier_balance
-   FROM customer C, nation N, region R, supplier S
-   WHERE C.c_nationkey = N.n_nationkey
-   AND N.n_regionkey = R.r_regionkey
-   AND S.s_nationkey = N.n_nationkey
-   AND C.c_acctbal > 1000
-   AND S.s_nationkey < 2000
 
-'''
+
 ## Invalid tree example
 sql_query = '''
 
@@ -120,6 +104,24 @@ SELECT
         c.c_name AS customer_name
     FROM 
         customer c
+'''
+## Example
+sql_query = '''
+SELECT
+       C.c_custkey AS customer_id,
+       C.c_name AS customer_name,
+       C.c_acctbal AS customer_balance,
+       N.n_name AS nation_name,
+       R.r_name AS region_name,
+       S.s_name AS supplier_name,
+       S.s_acctbal AS supplier_balance
+   FROM customer C, nation N, region R, supplier S
+   WHERE C.c_nationkey = N.n_nationkey
+   AND N.n_regionkey = R.r_regionkey
+   AND S.s_nationkey = N.n_nationkey
+   AND C.c_acctbal > 1000
+   AND S.s_nationkey < 2000
+
 '''
 ##
 # Function to open the overlay input box
