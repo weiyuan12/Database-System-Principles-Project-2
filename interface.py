@@ -7,7 +7,7 @@ from constants import query_input_1,JOINS,SCANS,FILTERS
 
 
 class TreeVisualizer:
-    def __init__(self, root,query_dict,use_dict_IO_tuples,disable_buttons,screen_ratio):
+    def __init__(self, root,query_dict,use_dict_IO_tuples,disable_buttons,screen_ratio,Tuples,M):
         self.root = root
         self.nodes = None
         self.edges = None
@@ -16,7 +16,8 @@ class TreeVisualizer:
         self.join_order = list(range(len(query_dict["joins"])))
         self.disable_buttons = disable_buttons
         self.screen_ratio = screen_ratio
-        print(self.root)
+        self.Tuples = Tuples
+        self.M=M
          # Get the screen dimensions
         screen_width = root.winfo_screenwidth()
         screen_height = root.winfo_screenheight()
@@ -36,22 +37,25 @@ class TreeVisualizer:
         self.frame.grid_rowconfigure(0, weight=1)
         self.frame.grid_columnconfigure(0, weight=1)
         # Create a canvas with scrollbars
-        self.canvas = tk.Canvas(self.frame, bg='white',width=canvas_width-100, height=canvas_height, scrollregion=(0, 0, 1600, 1400))
+        self.canvas = tk.Canvas(self.frame, bg='white',width=canvas_width-200, height=canvas_height, scrollregion=(0, 0, 2000, 2000))
         self.h_scrollbar = ttk.Scrollbar(self.frame, orient="horizontal", command=self.canvas.xview)
         self.v_scrollbar = ttk.Scrollbar(self.frame, orient="vertical", command=self.canvas.yview)
         self.canvas.configure(xscrollcommand=self.h_scrollbar.set, yscrollcommand=self.v_scrollbar.set)
 
-        self.canvas.grid(row=0, column=0, sticky="nsew")
-        self.h_scrollbar.grid(row=1, column=0, sticky="ew")
-        self.v_scrollbar.grid(row=0, column=1, sticky="ns")
+        # Position scrollbars: vertical on the left, horizontal at the bottom
+        self.v_scrollbar.grid(row=0, column=0, sticky="ns")
+        self.canvas.grid(row=0, column=1, sticky="nsew")
+        self.h_scrollbar.grid(row=1, column=1, sticky="ew")
 
         # Set frame to resize with window
         self.frame.grid_rowconfigure(0, weight=1)
-        self.frame.grid_columnconfigure(0, weight=1)
+        self.frame.grid_columnconfigure(1, weight=1)
 
+    
         # Create an options frame below the canvas for buttons
         self.options_frame = tk.Frame(root, bg="lightgray", pady=10)
         self.options_frame.grid(row=2, column=0, sticky="ew")
+        
         if self.disable_buttons is False:
             self.create_option_buttons(self.options_frame)  # Only create options once
             self.create_join_buttons()
@@ -62,58 +66,63 @@ class TreeVisualizer:
 
     def create_tree_visualization(self):
         self.canvas.delete("all")
-        query_tree = build_query_tree(self.query_dict, self.join_order,self.use_dict_IO_tuples)
+        query_tree = build_query_tree(self.query_dict, self.join_order,self.use_dict_IO_tuples,self.Tuples,self.M)
         self.nodes, self.edges = get_nodes_and_edges(query_tree)
         
         # Draw the root node
         start_x = 500
         start_y = 50
-        self.draw_node(self.nodes[0], start_x, start_y)
+        self.draw_node(self.nodes[0], start_x, start_y,self.use_dict_IO_tuples)
         # Draw edges with updated arrow direction
         for edge in self.edges:
             parent_id, child_id = edge
             parent_pos = self.node_positions[parent_id]
             child_pos = self.node_positions[child_id]
             self.canvas.create_line(child_pos[0], child_pos[1] - 30,
-                                    parent_pos[0], parent_pos[1] + 30, arrow=tk.LAST)
+                                    parent_pos[0], parent_pos[1] + 35, arrow=tk.LAST)
         # Add the statistics
         tree_IO_cost=total_IO_cost(query_tree)
-        est_tuples = 0
-        actual_tuples = 0
+        est_tuples = query_tree.get_tuples()
         # Remove old bottom label if it exists
         if hasattr(self, 'bottom_label') and self.bottom_label.winfo_exists():
             self.bottom_label.destroy()
 
         # Add the updated statistics as a new label
         if self.disable_buttons is True:
-            mode= "Original"
-            self.bottom_label = tk.Label(
-            self.options_frame,
-            text=f"{mode}: \nTotal IO cost: {tree_IO_cost} \nActual tuples: {est_tuples}",
-            anchor="e",
-            bg="lightgray",
-            font=("Arial", 10,"bold")
-        )
-        else:
-            mode = "Modified"
+            mode = "Original"
+            # Round the IO cost and tuples to 2 decimal places
+            rounded_tree_IO_cost = round(tree_IO_cost, 2)
+            rounded_est_tuples = round(est_tuples, 2)
             self.bottom_label = tk.Label(
                 self.options_frame,
-                text=f"{mode}: \nEstimated IO cost: {tree_IO_cost} \nEstimated tuples: {est_tuples}",
+                text=f"{mode}: \nActual IO cost: {rounded_tree_IO_cost} \nActual tuples: {rounded_est_tuples}",
                 anchor="e",
                 bg="lightgray",
-                font=("Arial", 10,"bold")
+                font=("Arial", 10, "bold")
+            )
+        else:
+            mode = "Modified"
+            # Round the IO cost and tuples to 2 decimal places
+            rounded_tree_IO_cost = round(tree_IO_cost, 2)
+            rounded_est_tuples = round(est_tuples, 2)
+            self.bottom_label = tk.Label(
+                self.options_frame,
+                text=f"{mode}: \nEstimated IO cost: {rounded_tree_IO_cost} \nEstimated tuples: {rounded_est_tuples}",
+                anchor="e",
+                bg="lightgray",
+                font=("Arial", 10, "bold")
             )
         self.bottom_label.pack(fill=tk.X, padx=5, pady=1, side="right")
     def create_join_buttons(self):
         """Create buttons to change join types."""
         for idx, join in enumerate(self.query_dict["joins"]):
-            join_label = f"JOIN {join[0]['table']}={join[1]['table']}"
+            join_label = f"J {join[0]['table']}={join[1]['table']}"
             btn = tk.Button(
                 self.options_frame,
                 text=join_label,
                 command=lambda i=idx: self.update_join_type(i),
                 padx=1,
-                width=10, 
+                width=8, 
                 height=1,  
                 font=("Arial", 8) 
             )
@@ -127,7 +136,7 @@ class TreeVisualizer:
                 text=source_label,
                 command=lambda i=idx: self.update_scan_types("source",i),
                 padx=1,
-                width=10, 
+                width=8, 
                 height=1,  
                 font=("Arial", 8) 
             )
@@ -156,6 +165,8 @@ class TreeVisualizer:
                 join["type"] = JOINS[2]
             elif join["type"] == JOINS[2]:
                 join["type"] = JOINS[3]
+            elif join["type"] == JOINS[3]:
+                join["type"] = JOINS[4]
             else:
                 join["type"] = JOINS[0]
         self.run()
@@ -166,15 +177,15 @@ class TreeVisualizer:
             current_scan["type"] = SCANS[1]
         elif current_scan["type"] == SCANS[1]:
             current_scan["type"] = SCANS[2]
-        elif current_scan["type"] == SCANS[2]:
-            current_scan["type"] = SCANS[3]
         else:
             current_scan["type"] = SCANS[0]
         self.run()
-    def draw_node(self, node, x, y, level=0):
+    def draw_node(self, node, x, y, use_dict_IO_tuples,level=0):
         node_id, node_type, value, IO_cost,tuples,Q_type = node
-        
-        text = f"{node_type}: {value}\n IO: {IO_cost}, Tup:{tuples} \n Type: {Q_type}"
+        if(use_dict_IO_tuples):
+            text = f"{node_type}: {value}\n IO: {IO_cost}, Tup:{tuples} \n Type: {Q_type}"
+        else:
+            text = f"{node_type}: {value}\n Est IO: {IO_cost}, Est Tup:{tuples} \n Type: {Q_type}"
         # each node is represented by rectangle
 
         text_width=150
@@ -226,7 +237,7 @@ class TreeVisualizer:
             for child_id in children:
                 child_node = next(n for n in self.nodes if n[0] == child_id)
                 # Recursively draw each child node with increased level
-                self.draw_node(child_node, child_x, y + 80, level + 1)
+                self.draw_node(child_node, child_x, y + 80,self.use_dict_IO_tuples, level + 1)
                 child_x += child_spacing
 
 
@@ -255,7 +266,6 @@ class TreeVisualizer:
 
 
 '''
-
 root = tk.Tk()
 root.title("Query Tree Visualization")
 sql_query =  """
