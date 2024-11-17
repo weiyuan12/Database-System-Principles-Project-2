@@ -7,7 +7,11 @@ from interface import TreeVisualizer
 from pgconn import query_row_counts,get_no_working_blocks
 M=int(get_no_working_blocks())
 Tuples=query_row_counts()
-print(M)
+if M is None:
+    M = 16384
+if Tuples is None:
+    Tuples = {'lineitem': 6001215, 'orders': 1500000, 'part': 200000, 'partsupp': 800000, 'customer': 150000, 'supplier': 10000, 'region': 5, 'nation': 25}
+
 sql_query =  '''
 SELECT 
         c.c_name AS customer_name

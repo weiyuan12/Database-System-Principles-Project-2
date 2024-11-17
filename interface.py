@@ -3,6 +3,7 @@ from tkinter import ttk
 from whatif import get_nodes_and_edges, build_query_tree,total_IO_cost
 from preprocessing import process_query_plan_full,preprocess_query
 from constants import query_input_1,JOINS,SCANS,FILTERS
+import itertools
 #{'lineitem': 6001215, 'orders': 1500000, 'part': 200000, 'partsupp': 800000, 'customer': 150000, 'supplier': 10000, 'region': 5, 'nation': 25}
 
 
@@ -13,7 +14,13 @@ class TreeVisualizer:
         self.edges = None
         self.query_dict = query_dict
         self.use_dict_IO_tuples=use_dict_IO_tuples
+        
         self.join_order = list(range(len(query_dict["joins"])))
+        self.original_join_order = list(range(len(query_dict["joins"])))
+        #self.permutations = itertools.permutations(self.join_order)
+        self.permutations = self.generate_valid_join_orders(query_dict["joins"])
+        print(self.permutations)
+        self.current_permutation=None
         self.disable_buttons = disable_buttons
         self.screen_ratio = screen_ratio
         self.Tuples = Tuples
@@ -24,7 +31,7 @@ class TreeVisualizer:
 
         # Set the canvas width to the screen width
         canvas_width = screen_width
-
+        
         # Set the canvas height based on the screen_ratio
         canvas_height = screen_height // self.screen_ratio
         if isinstance(self.root, tk.Tk):
@@ -61,14 +68,16 @@ class TreeVisualizer:
             self.create_join_buttons()
             self.create_scan_buttons()
         self.node_positions = {}
+
+        self.next_permutation()
         # Initial run to display the tree
         self.run()
 
     def create_tree_visualization(self):
         self.canvas.delete("all")
-        query_tree = build_query_tree(self.query_dict, self.join_order,self.use_dict_IO_tuples,self.Tuples,self.M)
+
+        query_tree,intermediate_relations = build_query_tree(self.query_dict, self.join_order,self.use_dict_IO_tuples,self.Tuples,self.M)
         self.nodes, self.edges = get_nodes_and_edges(query_tree)
-        
         # Draw the root node
         start_x = 500
         start_y = 50
@@ -243,24 +252,71 @@ class TreeVisualizer:
 
     def create_option_buttons(self, frame):
         options = ["Rotate Join Order ->", "<- Rotate Join Order"]
-        btn = tk.Button(frame, text=options[0], command=lambda o=options[0]: self.rotate_join_order("left"))
+        
+        btn = tk.Button(frame, text=options[0], command=lambda o=options[0]: self.next_permutation())
         btn.pack(side=tk.LEFT, padx=5, pady=5)
-        btn = tk.Button(frame, text=options[1], command=lambda o=options[0]: self.rotate_join_order("right"))
-        btn.pack(side=tk.LEFT, padx=5, pady=5)
-
-    def rotate_join_order(self, direction):
-        """Shift the join_order array. Direction can be 'left' or 'right'."""
-        if self.join_order:
-            if direction == "left":
-                self.join_order.append(self.join_order.pop(0))
-            elif direction == "right":
-                self.join_order.insert(0, self.join_order.pop())
+    def next_permutation(self):
+        """Move to the next permutation in the list."""
+        try:
+            # Get the next permutation
+            self.current_permutation = next(self.permutations)
+            self.join_order = list(self.current_permutation)  # Update the current order
             self.run()
+        except StopIteration:
+            print("reset")
+            self.reset_permutations()
+            self.current_permutation = next(self.permutations)
+            self.join_order = list(self.current_permutation)
+            self.run()
+
+    def reset_permutations(self):
+        self.permutations = itertools.permutations(self.original_join_order)
+        self.current_permutation = self.original_join_order
+        
     def run(self):
         """Runs the visualization setup and updates tree visualization."""
         self.create_tree_visualization()
 
-    
+    def get_join_validity(self, joins, order):
+        """
+        Determine the validity between joins based on the tables involved for a given order.
+        The order is valid if each join contains at least one table from the previous join's dependency.
+        """
+        dependencies = [[] for _ in range(len(joins))]
+        
+        # Iterate through each join in the given order
+        for i, idx in enumerate(order):
+            temp = []  # List to hold the tables in the current join
+            
+            # Collect all tables (aliases) from the current join
+            for table_info in joins[idx]:
+                temp.append(table_info["alias"])
+            
+            # Check validity
+            if i > 0:  # If it's not the first join
+                # Check if the previous dependency has at least one table from the current join
+                if not any(table in dependencies[i-1] for table in temp):
+                    return False  # If no table in the previous dependency matches the current temp, invalid order
+
+            # Store the dependency for the current join (cumulative list of tables)
+            if i == 0:
+                dependencies[i] = temp  # For the first join, just add its tables
+            else:
+                dependencies[i] = dependencies[i-1] + temp  # Add the tables from the previous dependency and the current join
+
+        return True
+
+
+    def generate_valid_join_orders(self, joins):
+        """
+        Generate all valid join orders based on the given join operations.
+        """
+        # Get the table dependencies
+        all_orders = itertools.permutations(range(len(joins)))
+        
+        # Return a generator that yields only valid join orders
+        return (order for order in all_orders if self.get_join_validity(joins, order))
+        
 
 # Set up the Tkinter window and visualize the tree
 

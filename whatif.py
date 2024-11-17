@@ -432,10 +432,9 @@ def build_query_tree(query_dict,join_order,use_dict_IO_tuples,Tuples,M):
         print(intermediate_relations)
         #print(next_top)
     if (len(intermediate_relations)>1):
-        
         print("more than 1 intermeidate relations, trying to find the perfect join")
         
-    return next_top
+    return next_top,intermediate_relations
 
 def get_nodes_and_edges(node):
     '''
