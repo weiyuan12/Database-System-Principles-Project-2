@@ -44,7 +44,6 @@ def parse_conditions(where_clause, tables):
     
     # Split the where clause into individual conditions
     conditions = split_conditions(where_clause)
-    print(conditions)
     for condition in conditions:
         # Find comparison operator
         operators = ['<=', '>=', '=', '<', '>']
@@ -337,7 +336,6 @@ def parse_execution_plan_to_dict(plan):
         alias = None
         is_a_join = True
         # Handle Seq Scan nodes (source tables)
-        print(node['type'])
         if node['type'] in SCANS:
             table, alias = extract_table_info(node['details'])
             if table:
@@ -465,7 +463,17 @@ def process_query_plan_full(sql_query):
     
 # Example usage
 if __name__ == "__main__":
-    sql_query =  """
+    sql_query = """
+     SELECT 
+        *
+    FROM 
+        customer c
+    WHERE 
+        c.c_acctbal<1000
+
+    """
+    
+    """
      SELECT 
         c.c_name AS customer_name,
         o.o_orderkey AS order_id
@@ -536,9 +544,9 @@ if __name__ == "__main__":
     #tree = parse_execution_plan(plan)
 
     tree, structured_format = process_query_plan_full(sql_query)
-    print_tree(tree)
-    print(structured_format)
-    print(json.dumps(structured_format, indent=2))
+    # print_tree(tree)
+    # print(structured_format)
+    # print(json.dumps(structured_format, indent=2))
     modified_QEP_formatted = preprocess_query(sql_query)
 
    
