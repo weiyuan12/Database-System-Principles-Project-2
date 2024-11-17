@@ -85,3 +85,15 @@ docker system prune
 ```bash
 docker rm -f postgres_db pgadmin
 ```
+
+## Repository Info
+1. pgconn.py - To connect to the postgresdb
+2. interface.py - To display interface
+3. preprocessing.py - Preprocesses the input SQL and the postges QEP to display on interface.py
+4. whatif.py - calculations and contraints
+
+### Intermediate files (generated at runtime)
+5. generated_our_QEP_structure.json - Intermediate JSON dump of preprocessing.py, representing SQL in data structure format that interface.py uses
+6. generated_postgres_plan.txt - Output of calling EXPLAIN ANALYSE on SQL query using postgres
+7. generated_postgres_query_plan_tree.txt - Intermediate output from preprocessing.py, showing a tree format of  generated_postgres_plan.txt
+8. generated_postgres_query_plan_structured.json - Intermediate JSON dump of preprocessing.py, representing generated_postgres_plan.txt in data structure format that interface.py uses
