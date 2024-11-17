@@ -37,22 +37,25 @@ class TreeVisualizer:
         self.frame.grid_rowconfigure(0, weight=1)
         self.frame.grid_columnconfigure(0, weight=1)
         # Create a canvas with scrollbars
-        self.canvas = tk.Canvas(self.frame, bg='white',width=canvas_width-100, height=canvas_height, scrollregion=(0, 0, 1600, 1400))
+        self.canvas = tk.Canvas(self.frame, bg='white',width=canvas_width-200, height=canvas_height, scrollregion=(0, 0, 2000, 2000))
         self.h_scrollbar = ttk.Scrollbar(self.frame, orient="horizontal", command=self.canvas.xview)
         self.v_scrollbar = ttk.Scrollbar(self.frame, orient="vertical", command=self.canvas.yview)
         self.canvas.configure(xscrollcommand=self.h_scrollbar.set, yscrollcommand=self.v_scrollbar.set)
 
-        self.canvas.grid(row=0, column=0, sticky="nsew")
-        self.h_scrollbar.grid(row=1, column=0, sticky="ew")
-        self.v_scrollbar.grid(row=0, column=1, sticky="ns")
+        # Position scrollbars: vertical on the left, horizontal at the bottom
+        self.v_scrollbar.grid(row=0, column=0, sticky="ns")
+        self.canvas.grid(row=0, column=1, sticky="nsew")
+        self.h_scrollbar.grid(row=1, column=1, sticky="ew")
 
         # Set frame to resize with window
         self.frame.grid_rowconfigure(0, weight=1)
-        self.frame.grid_columnconfigure(0, weight=1)
+        self.frame.grid_columnconfigure(1, weight=1)
 
+    
         # Create an options frame below the canvas for buttons
         self.options_frame = tk.Frame(root, bg="lightgray", pady=10)
         self.options_frame.grid(row=2, column=0, sticky="ew")
+        
         if self.disable_buttons is False:
             self.create_option_buttons(self.options_frame)  # Only create options once
             self.create_join_buttons()
@@ -76,7 +79,7 @@ class TreeVisualizer:
             parent_pos = self.node_positions[parent_id]
             child_pos = self.node_positions[child_id]
             self.canvas.create_line(child_pos[0], child_pos[1] - 30,
-                                    parent_pos[0], parent_pos[1] + 30, arrow=tk.LAST)
+                                    parent_pos[0], parent_pos[1] + 35, arrow=tk.LAST)
         # Add the statistics
         tree_IO_cost=total_IO_cost(query_tree)
         est_tuples = query_tree.get_tuples()
@@ -86,34 +89,40 @@ class TreeVisualizer:
 
         # Add the updated statistics as a new label
         if self.disable_buttons is True:
-            mode= "Original"
-            self.bottom_label = tk.Label(
-            self.options_frame,
-            text=f"{mode}: \nActual IO cost: {tree_IO_cost} \nActual tuples: {est_tuples}",
-            anchor="e",
-            bg="lightgray",
-            font=("Arial", 10,"bold")
-        )
-        else:
-            mode = "Modified"
+            mode = "Original"
+            # Round the IO cost and tuples to 2 decimal places
+            rounded_tree_IO_cost = round(tree_IO_cost, 2)
+            rounded_est_tuples = round(est_tuples, 2)
             self.bottom_label = tk.Label(
                 self.options_frame,
-                text=f"{mode}: \nEstimated IO cost: {tree_IO_cost} \nEstimated tuples: {est_tuples}",
+                text=f"{mode}: \nActual IO cost: {rounded_tree_IO_cost} \nActual tuples: {rounded_est_tuples}",
                 anchor="e",
                 bg="lightgray",
-                font=("Arial", 10,"bold")
+                font=("Arial", 10, "bold")
+            )
+        else:
+            mode = "Modified"
+            # Round the IO cost and tuples to 2 decimal places
+            rounded_tree_IO_cost = round(tree_IO_cost, 2)
+            rounded_est_tuples = round(est_tuples, 2)
+            self.bottom_label = tk.Label(
+                self.options_frame,
+                text=f"{mode}: \nEstimated IO cost: {rounded_tree_IO_cost} \nEstimated tuples: {rounded_est_tuples}",
+                anchor="e",
+                bg="lightgray",
+                font=("Arial", 10, "bold")
             )
         self.bottom_label.pack(fill=tk.X, padx=5, pady=1, side="right")
     def create_join_buttons(self):
         """Create buttons to change join types."""
         for idx, join in enumerate(self.query_dict["joins"]):
-            join_label = f"JOIN {join[0]['table']}={join[1]['table']}"
+            join_label = f"J {join[0]['table']}={join[1]['table']}"
             btn = tk.Button(
                 self.options_frame,
                 text=join_label,
                 command=lambda i=idx: self.update_join_type(i),
                 padx=1,
-                width=10, 
+                width=8, 
                 height=1,  
                 font=("Arial", 8) 
             )
@@ -127,7 +136,7 @@ class TreeVisualizer:
                 text=source_label,
                 command=lambda i=idx: self.update_scan_types("source",i),
                 padx=1,
-                width=10, 
+                width=8, 
                 height=1,  
                 font=("Arial", 8) 
             )
@@ -156,6 +165,8 @@ class TreeVisualizer:
                 join["type"] = JOINS[2]
             elif join["type"] == JOINS[2]:
                 join["type"] = JOINS[3]
+            elif join["type"] == JOINS[3]:
+                join["type"] = JOINS[4]
             else:
                 join["type"] = JOINS[0]
         self.run()
@@ -166,8 +177,6 @@ class TreeVisualizer:
             current_scan["type"] = SCANS[1]
         elif current_scan["type"] == SCANS[1]:
             current_scan["type"] = SCANS[2]
-        elif current_scan["type"] == SCANS[2]:
-            current_scan["type"] = SCANS[3]
         else:
             current_scan["type"] = SCANS[0]
         self.run()

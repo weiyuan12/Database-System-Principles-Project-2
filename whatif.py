@@ -69,9 +69,9 @@ class QueryNode:
     
 def set_source_IO(query_dict_itm,table_name):
     '''
-    query_dict_itm-> the object from the query dict
-    node-> selection or source node
-    mode-> source or selects
+    query_dict_itm: the object from the query dict
+    node: selection or source node
+    mode: source or selects
     '''
     number_of_blocks=get_blocks(table_name)
     
@@ -96,7 +96,6 @@ def set_selection_tuples(query_dict_itm,node,table_name,columns):
     - node: the selection node
     
     '''
-    print(table_name)
 
     #number_of_blocks=get_blocks(table_name)
     number_of_tuples=0
@@ -105,18 +104,18 @@ def set_selection_tuples(query_dict_itm,node,table_name,columns):
     number_of_child_tuples=child.get_tuples()
     number_of_tuples=number_of_child_tuples
     for column in columns:
+        
         V=get_unique_count(table_name,column)
         if V is None:
             V=number_of_tuples
-        if query_dict_itm["operator"]=="<" or query_dict_itm["operator"]==">":
+        
+        if query_dict_itm['operator']=="<" or query_dict_itm['operator']==">":
             # divide by 3
-            number_of_child_tuples=number_of_child_tuples//3
-        elif query_dict_itm["operator"]=="=":
-            number_of_child_tuples=number_of_child_tuples//V
-        elif query_dict_itm["operator"]=="!=":
-            number_of_child_tuples=number_of_child_tuples(V-1)//V
-        else:
-            number_of_child_tuples=number_of_tuples
+            number_of_child_tuples=number_of_child_tuples/3
+        elif query_dict_itm['operator']=="=":
+            number_of_child_tuples=number_of_child_tuples/V
+        elif query_dict_itm['operator']=="!=":
+            number_of_child_tuples=number_of_child_tuples(V-1)/V
     return number_of_child_tuples
    
 def set_join_tuple_and_IO(query_dict_itm,join_node,M):
@@ -160,7 +159,7 @@ def set_join_tuple_and_IO(query_dict_itm,join_node,M):
     # Merge
     elif query_dict_itm[0]['type']==JOINS[2]:
         n_IO = block_1 + block_2
-    # Index
+    # Index/Index only
     else:
         if block_1< block_2:
             n_IO=block_1 + (tuples_1 * block_2)/V_2
@@ -191,7 +190,6 @@ def select_and_project(query_dict,source_alias,source_table,scan_type,use_dict_I
             for i in range(len(query_dict['source'])):
                 if query_dict['source'][i]['alias'].lower()==(source_alias.lower()):
                     IO_cost = set_source_IO(query_dict['source'][i],source_table)
-                    print("IO cost")
                     source_node.set_IO_cost(IO_cost)
                     break
         else:
@@ -209,7 +207,7 @@ def select_and_project(query_dict,source_alias,source_table,scan_type,use_dict_I
         for i in range(len(query_dict["source"])):
             if query_dict["source"][i]["alias"].lower().startswith(source_alias.lower()):
                 source_node.set_tuples(query_dict["source"][i]["tuples"])
-                source_node.set_IO_cost(query_dict["source"][i]["IO_cost"])
+                source_node.set_IO_cost(float(query_dict["source"][i]["IO_cost"]))
                 
     source_node.set_Q_Type(scan_type)
     # Check for Selections (range queries)
@@ -228,14 +226,19 @@ def select_and_project(query_dict,source_alias,source_table,scan_type,use_dict_I
                 columns.append(query_dict["selects"][m]["left"].split('(')[1])
             elif "(" in query_dict["selects"][m]["right"]:
                 columns.append(query_dict["selects"][m]["right"].split('(')[1])
-    
+            elif "." in query_dict["selects"][m]["left"]:
+                columns.append(query_dict["selects"][m]["left"].split('.')[1])
+            elif "." in query_dict["selects"][m]["right"]:
+                columns.append(query_dict["selects"][m]["right"].split('.')[1])
     if selection_node is not None:
         if use_dict_IO_tuples:
             selection_node.set_tuples(query_dict["selects"][m]["tuples"])
-            selection_node.set_IO_cost(query_dict["selects"][m]["IO_cost"])
+            # !!scan is done in the first step:
+            selection_node.set_IO_cost(0)
         
         else: #use our own estimation
-            selection_node.set_IO_cost(selection_node.get_children()[0].get_IO_cost())
+            # !!scan is done in the first step:
+            selection_node.set_IO_cost(0)
             tuples=set_selection_tuples(query_dict["selects"][m], selection_node,source_table,columns)
             selection_node.set_tuples(tuples)
     
@@ -324,7 +327,6 @@ def join_tables(query_dict,join_index,current_intermediate_relations,use_dict_IO
             else: source_Q_type = "None"
         # Perform selection and projection on the source if there is no checkpoint
         if checkpoint == None or (checkpoint and source_alias not in checkpoint.get_alias()):
-            print("checkpoint is none")
             source_node=QueryNode("Source",source_alias)
             if use_dict_IO_tuples==False:
                 tuples_value = Tuples.get(source_table)
@@ -350,7 +352,7 @@ def join_tables(query_dict,join_index,current_intermediate_relations,use_dict_IO
                 for i in range(len(query_dict["source"])):
                     if query_dict["source"][i]["alias"].lower().startswith(source_alias.lower()):
                         source_node.set_tuples(query_dict["source"][i]["tuples"])
-                        
+                        source_node.set_IO_cost(query_dict["source"][i]["IO_cost"])
             source_node.set_Q_Type(source_Q_type)
             # Check for Selections (range queries)
             selection_node=select_and_project(query_dict,source_alias,source_table,source_Q_type,use_dict_IO_tuples,Tuples)
@@ -471,22 +473,5 @@ def total_IO_cost(root):
     return total_cost
 # default is [0,1,2,3,4....,n-1] for n-1 joins
 join_order=list(range(len(query_input_1["joins"])))
-
-'''
-
-# Print the query tree structure
-print("Query Tree Structure:")
-print(query_tree)
-
-# Print the nodes and edges
-print("\nNodes:")
-for node_id, node_type, value in nodes:
-    print(f"Node ID: {node_id}, Type: {node_type}, Value: {value}")
-
-print("\nEdges:")
-for parent_id, child_id in edges:
-    print(f"Parent ID: {parent_id} -> Child ID: {child_id}")
-'''
-
 
 #{'lineitem': 6001215, 'orders': 1500000, 'part': 200000, 'partsupp': 800000, 'customer': 150000, 'supplier': 10000, 'region': 5, 'nation': 25}
