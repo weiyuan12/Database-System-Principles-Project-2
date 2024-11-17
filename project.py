@@ -58,6 +58,7 @@ sql_query =  """
     AND C.c_acctbal > 1000
     AND S.s_nationkey < 2000
     """
+
 # Function to open the overlay input box
 def open_sql_input_overlay():
     # Create a Toplevel window for the SQL input box

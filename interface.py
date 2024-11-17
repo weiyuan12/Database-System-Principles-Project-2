@@ -4,6 +4,7 @@ from whatif import get_nodes_and_edges, build_query_tree,total_IO_cost
 from preprocessing import process_query_plan_full,preprocess_query
 from constants import query_input_1,JOINS,SCANS,FILTERS
 import itertools
+from functools import partial
 #{'lineitem': 6001215, 'orders': 1500000, 'part': 200000, 'partsupp': 800000, 'customer': 150000, 'supplier': 10000, 'region': 5, 'nation': 25}
 
 
@@ -14,7 +15,7 @@ class TreeVisualizer:
         self.edges = None
         self.query_dict = query_dict
         self.use_dict_IO_tuples=use_dict_IO_tuples
-        
+        self.buttons = []
         self.join_order = list(range(len(query_dict["joins"])))
         self.original_join_order = list(range(len(query_dict["joins"])))
         #self.permutations = itertools.permutations(self.join_order)
@@ -53,7 +54,7 @@ class TreeVisualizer:
         self.v_scrollbar.grid(row=0, column=0, sticky="ns")
         self.canvas.grid(row=0, column=1, sticky="nsew")
         self.h_scrollbar.grid(row=1, column=1, sticky="ew")
-
+        
         # Set frame to resize with window
         self.frame.grid_rowconfigure(0, weight=1)
         self.frame.grid_columnconfigure(1, weight=1)
@@ -163,32 +164,36 @@ class TreeVisualizer:
             )
             btn.pack(side=tk.LEFT, padx=1, pady=1)
     
+    def _toggle_type(self, mode, index, options_list):
+        """Helper function to toggle between types in a given list."""
+        current_item = self.query_dict[mode][index]
+        if(mode=="joins"):
+            current_type = current_item[0]["type"]
+            current_type = current_item[1]["type"]
+        else:
+            current_type = current_item["type"]
+        
+        # Find the current type's index and toggle to the next one, looping around
+        current_index = options_list.index(current_type)
+        new_index = (current_index + 1) % len(options_list)
+        
+        # Update the type
+        if(mode=="joins"):
+            current_item[0]["type"] = options_list[new_index]
+            current_item[1]["type"] = options_list[new_index]
+        else:
+            current_item["type"] = options_list[new_index]
+
     def update_join_type(self, join_index):
         """Toggle the join type for the selected join."""
-        current_join = self.query_dict["joins"][join_index]
-        for join in current_join:
-            # Toggle between join types (Hash and Nested Loop as an example)
-            if join["type"] == JOINS[0]:
-                join["type"] = JOINS[1]
-            elif join["type"] == JOINS[1]:
-                join["type"] = JOINS[2]
-            elif join["type"] == JOINS[2]:
-                join["type"] = JOINS[3]
-            elif join["type"] == JOINS[3]:
-                join["type"] = JOINS[4]
-            else:
-                join["type"] = JOINS[0]
+        self._toggle_type('joins', join_index, JOINS)
         self.run()
-    def update_scan_types(self,mode,index):
-        current_scan = self.query_dict[mode][index]
 
-        if current_scan["type"] == SCANS[0]:
-            current_scan["type"] = SCANS[1]
-        elif current_scan["type"] == SCANS[1]:
-            current_scan["type"] = SCANS[2]
-        else:
-            current_scan["type"] = SCANS[0]
+    def update_scan_types(self, mode, index):
+        """Toggle the scan type for the selected scan."""
+        self._toggle_type(mode, index, SCANS)
         self.run()
+    
     def draw_node(self, node, x, y, use_dict_IO_tuples,level=0):
         node_id, node_type, value, IO_cost,tuples,Q_type = node
         if(use_dict_IO_tuples):
@@ -196,7 +201,6 @@ class TreeVisualizer:
         else:
             text = f"{node_type}: {value}\n Est IO: {IO_cost}, Est Tup:{tuples} \n Type: {Q_type}"
         # each node is represented by rectangle
-
         text_width=150
         text_item=self.canvas.create_text(
         x, y,
@@ -225,11 +229,9 @@ class TreeVisualizer:
         text=text,
         font=("Arial", 10),
         width=text_width,  
-        anchor="center"  
+        anchor="center",
         )
-
         self.node_positions[node_id] = (x, y)
-
         # Draw each child node
         children = [edge[1] for edge in self.edges if edge[0] == node_id]
         if children:
