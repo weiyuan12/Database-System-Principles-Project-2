@@ -20,7 +20,6 @@ class TreeVisualizer:
         self.original_join_order = list(range(len(query_dict["joins"])))
         #self.permutations = itertools.permutations(self.join_order)
         self.permutations = self.generate_valid_join_orders(query_dict["joins"])
-        print(self.permutations)
         self.current_permutation=None
         self.disable_buttons = disable_buttons
         self.screen_ratio = screen_ratio
@@ -45,7 +44,7 @@ class TreeVisualizer:
         self.frame.grid_rowconfigure(0, weight=1)
         self.frame.grid_columnconfigure(0, weight=1)
         # Create a canvas with scrollbars
-        self.canvas = tk.Canvas(self.frame, bg='white',width=canvas_width-200, height=canvas_height, scrollregion=(0, 0, 2000, 2000))
+        self.canvas = tk.Canvas(self.frame, bg='white',width=canvas_width-200, height=canvas_height, scrollregion=(0, 0, 5000, 5000))
         self.h_scrollbar = ttk.Scrollbar(self.frame, orient="horizontal", command=self.canvas.xview)
         self.v_scrollbar = ttk.Scrollbar(self.frame, orient="vertical", command=self.canvas.yview)
         self.canvas.configure(xscrollcommand=self.h_scrollbar.set, yscrollcommand=self.v_scrollbar.set)
@@ -78,6 +77,8 @@ class TreeVisualizer:
         self.canvas.delete("all")
 
         query_tree,intermediate_relations = build_query_tree(self.query_dict, self.join_order,self.use_dict_IO_tuples,self.Tuples,self.M)
+        if(len(intermediate_relations)>1):
+            self.next_permutation()
         self.nodes, self.edges = get_nodes_and_edges(query_tree)
         # Draw the root node
         start_x = 500
@@ -235,28 +236,35 @@ class TreeVisualizer:
         # Draw each child node
         children = [edge[1] for edge in self.edges if edge[0] == node_id]
         if children:
-            # Set wider spacing for the first k levels, then reduce for deeper levels
-            k = 1
+            # Define child spacing for the horizontal and vertical positioning
+            k = 1  # Custom level threshold for spacing adjustments
             if level < k:
-                child_spacing = 450  # Wider spacing
+                child_spacing = 450  # Wider horizontal spacing for shallow levels
             else:
-                child_spacing = 300  # Narrower spacing
-
+                child_spacing = 250  # Narrower horizontal spacing for deeper levels
+            
             total_width = (len(children) - 1) * child_spacing
-            child_x = x - total_width // 2 # Center children horizontally around the parent
+            child_x = x - total_width // 2  # Center children horizontally around the parent
+
+            # Calculate dynamic vertical spacing based on level
+            if len(children) <= 1:
+                vertical_spacing = 50 + (level * 12)  # Move single child slightly up
+            else:
+                vertical_spacing = 100 + (level * 25)  # Move multiple children further down
 
             for child_id in children:
                 child_node = next(n for n in self.nodes if n[0] == child_id)
-                # Recursively draw each child node with increased level
-                self.draw_node(child_node, child_x, y + 80,self.use_dict_IO_tuples, level + 1)
-                child_x += child_spacing
+                # Recursively draw each child node with adjusted x and y, and increased level
+                self.draw_node(child_node, child_x, y + vertical_spacing, use_dict_IO_tuples, level + 1)
+                child_x += child_spacing  # Move child_x position for the next child
+
 
 
     def create_option_buttons(self, frame):
-        options = ["Rotate Join Order ->", "<- Rotate Join Order"]
-        
-        btn = tk.Button(frame, text=options[0], command=lambda o=options[0]: self.next_permutation())
-        btn.pack(side=tk.LEFT, padx=5, pady=5)
+            options = ["Rotate Join Order ->", "<- Rotate Join Order"]
+            
+            btn = tk.Button(frame, text=options[0], command=lambda o=options[0]: self.next_permutation())
+            btn.pack(side=tk.LEFT, padx=1, pady=1)
     def next_permutation(self):
         """Move to the next permutation in the list."""
         try:

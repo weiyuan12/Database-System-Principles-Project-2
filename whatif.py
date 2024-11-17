@@ -1,6 +1,6 @@
 from constants import query_input_1
 from pgconn import get_blocks,get_unique_count
-from constants import SCANS,JOINS,FILTERS
+from constants import SCANS,JOINS
 import math
 
 class QueryNode:
@@ -278,7 +278,7 @@ def join_tables(query_dict,join_index,current_intermediate_relations,use_dict_IO
     updated_intermediate_relations = [cp for cp in current_intermediate_relations if cp not in intermediate_relations]
     # 1. Logic for joining 2 intermediate relations
     if len(intermediate_relations)==2:
-        print("intermediate_relations 2")
+        #print("intermediate_relations 2")
         join=join_alias_1 + "." + query_dict["joins"][join_index][0]["on"] + " = " +join_alias_2+ "." +query_dict["joins"][join_index][1]["on"]
         join_node = QueryNode("Join", join)
         join_node.set_Q_Type(query_dict["joins"][join_index][0]["type"])
