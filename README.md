@@ -10,6 +10,7 @@ python project.py
 ```
 ### Running SQL queries
 Due to the nature of our query parser, the SQL queries passed into interface.py need to follow a standard syntax. Join operations are done using the WHERE CLAUSE instead of the JOIN keyword. If there are syntax errors, there will be no output. Below is an example of a acceptable SQL query. More examples are found in project.py
+Note: it is best done with 4 or less joins due to the tree size
 ```bash
 SELECT 
         c.c_name AS customer_name,
