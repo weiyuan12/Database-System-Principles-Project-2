@@ -63,7 +63,7 @@ def parse_conditions(where_clause, tables):
         left_dots = left_side.count(".")
         right_dots = right_side.count(".")
 
-        if left_dots == 1 and right_dots == 1:
+        if left_dots == 1 and right_dots == 1 and not right_side.split('.')[0].isdigit():
             # It's a join condition
             left_alias, left_column = left_side.split(".")
             right_alias, right_column = right_side.split(".")
@@ -335,7 +335,9 @@ def parse_execution_plan_to_dict(plan):
             return
         io_cost, tuples_returned = extract_cost_and_rows(node['details'])
         alias = None
+        is_a_join = True
         # Handle Seq Scan nodes (source tables)
+        print(node['type'])
         if node['type'] in SCANS:
             table, alias = extract_table_info(node['details'])
             if table:
@@ -349,20 +351,16 @@ def parse_execution_plan_to_dict(plan):
                 result['source'].append(source_info)
             
             # Handle filter conditions for selects
-            if 'conditions' in node and node['type'] != "Index Scan":
+            if 'conditions' in node:
                 for condition in node['conditions']:
-                    if '>' in condition or '<' in condition or '=' in condition:
-                        parts = condition.split('>')
-                        if len(parts) != 2:
-                            parts = condition.split('<')
-                        if len(parts) != 2:
-                            parts = condition.split('=')
-                        
-                        if len(parts) == 2:
-                            left, right = parts
+                    match = re.search(r"(\S+)\s*(>|<|=)\s*(\S+)", condition)
+                    if match: 
+                        left, operator, right = match.groups()
+                        if '.' not in right or right.split(".")[0].strip().isdigit():
+                            is_a_join = False
                             select_info = {
                                 'left': left.strip(),
-                                'operator': '>',  # You might want to detect the actual operator
+                                'operator': operator,  # You might want to detect the actual operator
                                 'right': right.strip().replace("'", ""),
                                 'alias': alias,
                                 'type': node['type'],
@@ -370,8 +368,10 @@ def parse_execution_plan_to_dict(plan):
                                 'tuples': tuples_returned
                             }
                             result['selects'].append(select_info)
+                        else:
+                            is_a_join = True
         # Handle Join nodes
-        if node['type'] in JOINS:
+        if node['type'] in JOINS and is_a_join:
             io_cost, tuples_returned = extract_cost_and_rows(node['details'])
             table, alias = extract_table_info(node['details'])
             if 'conditions' in node:
@@ -466,25 +466,17 @@ def process_query_plan_full(sql_query):
 # Example usage
 if __name__ == "__main__":
     sql_query =  """
-    SELECT 
+     SELECT 
         c.c_name AS customer_name,
-        o.o_orderkey AS order_id,
-        o.o_orderdate AS order_date,
-        p.p_name AS part_name,
-        l.l_quantity AS quantity,
-        l.l_extendedprice AS extended_price
+        o.o_orderkey AS order_id
     FROM 
         customer c,
-        orders o,
-        lineitem l,
-        part p,
-        partsupp ps
+        orders o
     WHERE 
         c.c_custkey = o.o_custkey
-        AND o.o_orderkey = l.l_orderkey
-        AND l.l_partkey = p.p_partkey
-        AND p.p_partkey = ps.ps_partkey
-        AND p.p_retailprice < 1000
+        AND c.c_acctbal<1000
+        AND o.o_totalprice < 173665.47
+
     """
     """
     SELECT 
@@ -547,6 +539,7 @@ if __name__ == "__main__":
     print_tree(tree)
     print(structured_format)
     print(json.dumps(structured_format, indent=2))
+    modified_QEP_formatted = preprocess_query(sql_query)
 
    
 # Example EXPLAIN output and SELECT clause

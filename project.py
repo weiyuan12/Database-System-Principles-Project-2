@@ -10,35 +10,13 @@ Tuples=query_row_counts()
 print(M)
 sql_query =  '''
 SELECT 
-        c.c_name AS customer_name,
-        o.o_orderkey AS order_id,
-        o.o_orderdate AS order_date,
-        p.p_name AS part_name,
-        s.s_name AS supplier_name,
-        n.n_name AS nation_name,
-        r.r_name AS region_name,
-        l.l_quantity AS quantity,
-        l.l_extendedprice AS extended_price
+        c.c_name AS customer_name
     FROM 
-        customer c,
-        orders o,
-        lineitem l,
-        part p,
-        partsupp ps,
-        supplier s,
-        nation n,
-        region r
+        customer c
     WHERE 
-        c.c_custkey = o.o_custkey
-        AND o.o_orderkey = l.l_orderkey
-        AND l.l_partkey = p.p_partkey
-        AND l.l_suppkey = s.s_suppkey
-        AND p.p_partkey = ps.ps_partkey
-        AND s.s_nationkey = n.n_nationkey
-        AND n.n_regionkey = r.r_regionkey
-        AND p.p_retailprice < 1000
+        c.c_acctbal<1000
 '''
-sql_query =  """
+sql_query2 =  """
     SELECT 
         C.c_custkey AS customer_id,
         C.c_name AS customer_name,
