@@ -424,9 +424,9 @@ def build_query_tree(query_dict,join_order,use_dict_IO_tuples,Tuples,M):
        
         selection_node=select_and_project(query_dict,source_alias,source_table,source_Q_type,use_dict_IO_tuples,Tuples)
         if selection_node is not None:
-            return selection_node
+            return selection_node, []
         else:
-            return QueryNode("Source",source_alias)
+            return QueryNode("Source",source_alias), []
 
     # Cond #2 There are joins
     for i in join_order:
