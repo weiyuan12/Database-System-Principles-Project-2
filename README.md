@@ -1,14 +1,22 @@
-"# Database-System-Principles-Project-2" 
+# Database-System-Principles-Project-2"
 
 
+## Running application
+Ensure that the postgres database is up and running before running the application.
 ### Run the interface.py to launch the application
 
 ```bash
-python interface.py
+python project.py
 ```
 
+## Installing dependencies
+```bash
+pip install -r requirements.txt
+or 
+pip install psycopg2
+```
 
-### TPC-H
+## Set Up TPC-H and Postgres
 Prerequisites:
     - Windows OS
     - Make: https://www.gnu.org/software/make/#download
