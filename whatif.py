@@ -1,6 +1,6 @@
 from constants import query_input_1
 from pgconn import get_blocks,get_unique_count
-from constants import SCANS,JOINS,FILTERS
+from constants import SCANS,JOINS
 import math
 
 class QueryNode:
@@ -17,7 +17,7 @@ class QueryNode:
     '''
     _id_counter = 1
     def __init__(self, node_type, value=None):
-        self.node_type = node_type  
+        self.node_type = node_type 
         self.value = value 
         self.children = []
         self.alias = []
@@ -84,6 +84,8 @@ def set_source_IO(query_dict_itm,table_name):
         else:
             ## bitmap and index
             bitmap_index_cost = int(math.log2(number_of_blocks))
+            if(bitmap_index_cost + matching_blocks<1):
+                return 1
             return bitmap_index_cost + matching_blocks
     else:
         # Hash
@@ -235,12 +237,13 @@ def select_and_project(query_dict,source_alias,source_table,scan_type,use_dict_I
             selection_node.set_tuples(query_dict["selects"][m]["tuples"])
             # !!scan is done in the first step:
             selection_node.set_IO_cost(0)
-        
+            
         else: #use our own estimation
             # !!scan is done in the first step:
             selection_node.set_IO_cost(0)
             tuples=set_selection_tuples(query_dict["selects"][m], selection_node,source_table,columns)
             selection_node.set_tuples(tuples)
+            
     
     return selection_node
 
@@ -275,7 +278,7 @@ def join_tables(query_dict,join_index,current_intermediate_relations,use_dict_IO
     updated_intermediate_relations = [cp for cp in current_intermediate_relations if cp not in intermediate_relations]
     # 1. Logic for joining 2 intermediate relations
     if len(intermediate_relations)==2:
-        print("intermediate_relations 2")
+        #print("intermediate_relations 2")
         join=join_alias_1 + "." + query_dict["joins"][join_index][0]["on"] + " = " +join_alias_2+ "." +query_dict["joins"][join_index][1]["on"]
         join_node = QueryNode("Join", join)
         join_node.set_Q_Type(query_dict["joins"][join_index][0]["type"])
@@ -292,7 +295,7 @@ def join_tables(query_dict,join_index,current_intermediate_relations,use_dict_IO
             IO, tuples = set_join_tuple_and_IO(query_dict["joins"][join_index],join_node,M)
             join_node.set_IO_cost(IO)
             join_node.set_tuples(tuples)
-            
+        
         root=join_node
         updated_intermediate_relations.append(root)
         
@@ -398,6 +401,7 @@ def join_tables(query_dict,join_index,current_intermediate_relations,use_dict_IO
         IO, tuples = set_join_tuple_and_IO(query_dict["joins"][join_index],join_node,M)
         join_node.set_IO_cost(IO)
         join_node.set_tuples(tuples)
+    
     root=join_node
     updated_intermediate_relations.append(root)
     return root,updated_intermediate_relations
