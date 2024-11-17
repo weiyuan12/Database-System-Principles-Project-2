@@ -162,28 +162,19 @@ class TreeVisualizer:
         """Toggle the join type for the selected join."""
         current_join = self.query_dict["joins"][join_index]
         for join in current_join:
-            # Toggle between join types (Hash and Nested Loop as an example)
-            if join["type"] == JOINS[0]:
-                join["type"] = JOINS[1]
-            elif join["type"] == JOINS[1]:
-                join["type"] = JOINS[2]
-            elif join["type"] == JOINS[2]:
-                join["type"] = JOINS[3]
-            elif join["type"] == JOINS[3]:
-                join["type"] = JOINS[4]
-            else:
-                join["type"] = JOINS[0]
+            current_type_index = JOINS.index(join["type"])
+            next_type_index = (current_type_index + 1) % len(JOINS)
+            join["type"] = JOINS[next_type_index]
         self.run()
-    def update_scan_types(self,mode,index):
-        current_scan = self.query_dict[mode][index]
 
-        if current_scan["type"] == SCANS[0]:
-            current_scan["type"] = SCANS[1]
-        elif current_scan["type"] == SCANS[1]:
-            current_scan["type"] = SCANS[2]
-        else:
-            current_scan["type"] = SCANS[0]
+    def update_scan_types(self, mode, index):
+        """Toggle the scan type for the selected scan."""
+        current_scan = self.query_dict[mode][index]
+        current_type_index = SCANS.index(current_scan["type"])
+        next_type_index = (current_type_index + 1) % len(SCANS)
+        current_scan["type"] = SCANS[next_type_index]
         self.run()
+
     def draw_node(self, node, x, y, use_dict_IO_tuples,level=0):
         node_id, node_type, value, IO_cost,tuples,Q_type = node
         if(use_dict_IO_tuples):
