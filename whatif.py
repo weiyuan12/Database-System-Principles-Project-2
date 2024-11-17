@@ -286,7 +286,6 @@ def join_tables(query_dict,join_index,current_intermediate_relations,use_dict_IO
         for k in intermediate_relations:
             join_node.add_child(k)
             aliases=aliases+k.get_alias()
-        
         join_node.add_alias(aliases)
         if use_dict_IO_tuples:
             join_node.set_tuples(query_dict["joins"][join_index][0]["tuples"])
@@ -421,12 +420,13 @@ def build_query_tree(query_dict,join_order,use_dict_IO_tuples,Tuples,M):
         source_alias= query_dict["source"][0]["alias"]
         source_table= query_dict["source"][0]["table"]
         source_Q_type=query_dict["source"][0]["type"]
-       
+        
         selection_node=select_and_project(query_dict,source_alias,source_table,source_Q_type,use_dict_IO_tuples,Tuples)
+        print(selection_node)
         if selection_node is not None:
-            return selection_node, []
+            return selection_node,[]
         else:
-            return QueryNode("Source",source_alias), []
+            return QueryNode("Source",source_alias),[]
 
     # Cond #2 There are joins
     for i in join_order:
@@ -435,8 +435,6 @@ def build_query_tree(query_dict,join_order,use_dict_IO_tuples,Tuples,M):
         intermediate_relations=updated_intermediate_relations
         print(intermediate_relations)
         #print(next_top)
-    if (len(intermediate_relations)>1):
-        print("more than 1 intermeidate relations, trying to find the perfect join")
         
     return next_top,intermediate_relations
 

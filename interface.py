@@ -77,8 +77,6 @@ class TreeVisualizer:
         self.canvas.delete("all")
 
         query_tree,intermediate_relations = build_query_tree(self.query_dict, self.join_order,self.use_dict_IO_tuples,self.Tuples,self.M)
-        if(len(intermediate_relations)>1):
-            self.next_permutation()
         self.nodes, self.edges = get_nodes_and_edges(query_tree)
         # Draw the root node
         start_x = 500
@@ -248,7 +246,8 @@ class TreeVisualizer:
 
             # Calculate dynamic vertical spacing based on level
             if len(children) <= 1:
-                vertical_spacing = 50 + (level * 12)  # Move single child slightly up
+                
+                vertical_spacing = 70 + (level * 12)  # Move single child slightly up
             else:
                 vertical_spacing = 100 + (level * 25)  # Move multiple children further down
 
@@ -263,7 +262,14 @@ class TreeVisualizer:
     def create_option_buttons(self, frame):
             options = ["Rotate Join Order ->", "<- Rotate Join Order"]
             
-            btn = tk.Button(frame, text=options[0], command=lambda o=options[0]: self.next_permutation())
+            btn = tk.Button(frame, text=options[0], 
+                            command=lambda o=options[0]: self.next_permutation(),
+                            font=("Arial", 8),  # Smaller font size
+                            padx=2,  # Reduce horizontal padding
+                            pady=2,  # Reduce vertical padding
+                            width=15,  # Set a fixed smaller width
+                            height=1   # Set a fixed smaller height
+                            )
             btn.pack(side=tk.LEFT, padx=1, pady=1)
     def next_permutation(self):
         """Move to the next permutation in the list."""
