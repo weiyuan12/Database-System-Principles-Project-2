@@ -14,9 +14,12 @@ class TreeVisualizer:
         self.edges = None
         self.query_dict = query_dict
         self.use_dict_IO_tuples=use_dict_IO_tuples
+        
         self.join_order = list(range(len(query_dict["joins"])))
         self.original_join_order = list(range(len(query_dict["joins"])))
-        self.permutations = itertools.permutations(self.join_order)
+        #self.permutations = itertools.permutations(self.join_order)
+        self.permutations = self.generate_valid_join_orders(query_dict["joins"])
+        print(self.permutations)
         self.current_permutation=None
         self.disable_buttons = disable_buttons
         self.screen_ratio = screen_ratio
@@ -28,7 +31,7 @@ class TreeVisualizer:
 
         # Set the canvas width to the screen width
         canvas_width = screen_width
-
+        
         # Set the canvas height based on the screen_ratio
         canvas_height = screen_height // self.screen_ratio
         if isinstance(self.root, tk.Tk):
@@ -65,13 +68,15 @@ class TreeVisualizer:
             self.create_join_buttons()
             self.create_scan_buttons()
         self.node_positions = {}
+
         self.next_permutation()
         # Initial run to display the tree
         self.run()
 
     def create_tree_visualization(self):
         self.canvas.delete("all")
-        query_tree = build_query_tree(self.query_dict, self.join_order,self.use_dict_IO_tuples,self.Tuples,self.M)
+
+        query_tree,intermediate_relations = build_query_tree(self.query_dict, self.join_order,self.use_dict_IO_tuples,self.Tuples,self.M)
         self.nodes, self.edges = get_nodes_and_edges(query_tree)
         # Draw the root node
         start_x = 500
@@ -256,7 +261,6 @@ class TreeVisualizer:
             # Get the next permutation
             self.current_permutation = next(self.permutations)
             self.join_order = list(self.current_permutation)  # Update the current order
-            print(list(itertools.permutations(self.original_join_order)))
             self.run()
         except StopIteration:
             print("reset")
@@ -273,7 +277,46 @@ class TreeVisualizer:
         """Runs the visualization setup and updates tree visualization."""
         self.create_tree_visualization()
 
-    
+    def get_join_validity(self, joins, order):
+        """
+        Determine the validity between joins based on the tables involved for a given order.
+        The order is valid if each join contains at least one table from the previous join's dependency.
+        """
+        dependencies = [[] for _ in range(len(joins))]
+        
+        # Iterate through each join in the given order
+        for i, idx in enumerate(order):
+            temp = []  # List to hold the tables in the current join
+            
+            # Collect all tables (aliases) from the current join
+            for table_info in joins[idx]:
+                temp.append(table_info["alias"])
+            
+            # Check validity
+            if i > 0:  # If it's not the first join
+                # Check if the previous dependency has at least one table from the current join
+                if not any(table in dependencies[i-1] for table in temp):
+                    return False  # If no table in the previous dependency matches the current temp, invalid order
+
+            # Store the dependency for the current join (cumulative list of tables)
+            if i == 0:
+                dependencies[i] = temp  # For the first join, just add its tables
+            else:
+                dependencies[i] = dependencies[i-1] + temp  # Add the tables from the previous dependency and the current join
+
+        return True
+
+
+    def generate_valid_join_orders(self, joins):
+        """
+        Generate all valid join orders based on the given join operations.
+        """
+        # Get the table dependencies
+        all_orders = itertools.permutations(range(len(joins)))
+        
+        # Return a generator that yields only valid join orders
+        return (order for order in all_orders if self.get_join_validity(joins, order))
+        
 
 # Set up the Tkinter window and visualize the tree
 
