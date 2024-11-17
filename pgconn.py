@@ -20,7 +20,9 @@ tables = [
 def get_row_count(conn, table):
     with conn.cursor() as cur:
         # SQL query to count the rows
-        cur.execute(f"SELECT COUNT(*) FROM {table}")
+        # cur.execute(f"SELECT COUNT(*) FROM {table}")
+        # SQL query to get the estimated number of rows
+        cur.execute(f"SELECT reltuples::bigint AS estimated_count FROM pg_class WHERE relname = '{table}'")
         # Fetch the result
         count = cur.fetchone()[0]
         return count
@@ -173,6 +175,14 @@ def get_blocks(table) -> int:
 if __name__ == "__main__":
     table = "lineitem"
     key = "l_extendedprice"
+    conn = psycopg2.connect(
+        dbname=dbname,
+        user=user,
+        password=password,
+        host=host,
+        port=port
+    )
+    print(f"Get row count of {table}: {get_row_count(conn, table)}")
     print(f"Number of tuples in {table}: {query_row_counts()[table]}")
     print(f"Unique count of {table}: {get_unique_count(table, key)}")
     print(f"Number of working blocks: {get_no_working_blocks()}")
