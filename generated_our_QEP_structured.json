@@ -1,0 +1,154 @@
+{
+  "operation": "SELECT + Join",
+  "source": [
+    {
+      "table": "customer",
+      "alias": "c",
+      "type": "Seq Scan"
+    },
+    {
+      "table": "orders",
+      "alias": "o",
+      "type": "Seq Scan"
+    },
+    {
+      "table": "lineitem",
+      "alias": "l",
+      "type": "Seq Scan"
+    },
+    {
+      "table": "part",
+      "alias": "p",
+      "type": "Seq Scan"
+    },
+    {
+      "table": "partsupp",
+      "alias": "ps",
+      "type": "Seq Scan"
+    },
+    {
+      "table": "supplier",
+      "alias": "s",
+      "type": "Seq Scan"
+    },
+    {
+      "table": "nation",
+      "alias": "n",
+      "type": "Seq Scan"
+    },
+    {
+      "table": "region",
+      "alias": "r",
+      "type": "Seq Scan"
+    }
+  ],
+  "joins": [
+    [
+      {
+        "table": "customer",
+        "alias": "c",
+        "on": "c_custkey",
+        "type": "Hash Join"
+      },
+      {
+        "table": "orders",
+        "alias": "o",
+        "on": "o_custkey",
+        "type": "Hash Join"
+      }
+    ],
+    [
+      {
+        "table": "orders",
+        "alias": "o",
+        "on": "o_orderkey",
+        "type": "Hash Join"
+      },
+      {
+        "table": "lineitem",
+        "alias": "l",
+        "on": "l_orderkey",
+        "type": "Hash Join"
+      }
+    ],
+    [
+      {
+        "table": "lineitem",
+        "alias": "l",
+        "on": "l_partkey",
+        "type": "Hash Join"
+      },
+      {
+        "table": "part",
+        "alias": "p",
+        "on": "p_partkey",
+        "type": "Hash Join"
+      }
+    ],
+    [
+      {
+        "table": "lineitem",
+        "alias": "l",
+        "on": "l_suppkey",
+        "type": "Hash Join"
+      },
+      {
+        "table": "supplier",
+        "alias": "s",
+        "on": "s_suppkey",
+        "type": "Hash Join"
+      }
+    ],
+    [
+      {
+        "table": "part",
+        "alias": "p",
+        "on": "p_partkey",
+        "type": "Hash Join"
+      },
+      {
+        "table": "partsupp",
+        "alias": "ps",
+        "on": "ps_partkey",
+        "type": "Hash Join"
+      }
+    ],
+    [
+      {
+        "table": "supplier",
+        "alias": "s",
+        "on": "s_nationkey",
+        "type": "Hash Join"
+      },
+      {
+        "table": "nation",
+        "alias": "n",
+        "on": "n_nationkey",
+        "type": "Hash Join"
+      }
+    ],
+    [
+      {
+        "table": "nation",
+        "alias": "n",
+        "on": "n_regionkey",
+        "type": "Hash Join"
+      },
+      {
+        "table": "region",
+        "alias": "r",
+        "on": "r_regionkey",
+        "type": "Hash Join"
+      }
+    ]
+  ],
+  "selects": [
+    {
+      "left": "p.p_retailprice",
+      "operator": "<",
+      "right": "1000",
+      "alias": "p",
+      "type": "Seq Scan"
+    }
+  ]
+}

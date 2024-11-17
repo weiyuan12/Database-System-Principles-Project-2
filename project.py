@@ -7,38 +7,20 @@ from interface import TreeVisualizer
 from pgconn import query_row_counts,get_no_working_blocks
 M=int(get_no_working_blocks())
 Tuples=query_row_counts()
-print(M)
+if M is None:
+    M = 16384
+if Tuples is None:
+    Tuples = {'lineitem': 6001215, 'orders': 1500000, 'part': 200000, 'partsupp': 800000, 'customer': 150000, 'supplier': 10000, 'region': 5, 'nation': 25}
+
 sql_query =  '''
 SELECT 
-        c.c_name AS customer_name,
-        o.o_orderkey AS order_id,
-        o.o_orderdate AS order_date,
-        p.p_name AS part_name,
-        s.s_name AS supplier_name,
-        n.n_name AS nation_name,
-        r.r_name AS region_name,
-        l.l_quantity AS quantity,
-        l.l_extendedprice AS extended_price
+        c.c_name AS customer_name
     FROM 
-        customer c,
-        orders o,
-        lineitem l,
-        part p,
-        partsupp ps,
-        supplier s,
-        nation n,
-        region r
+        customer c
     WHERE 
-        c.c_custkey = o.o_custkey
-        AND o.o_orderkey = l.l_orderkey
-        AND l.l_partkey = p.p_partkey
-        AND l.l_suppkey = s.s_suppkey
-        AND p.p_partkey = ps.ps_partkey
-        AND s.s_nationkey = n.n_nationkey
-        AND n.n_regionkey = r.r_regionkey
-        AND p.p_retailprice < 1000
+        c.c_acctbal<1000
 '''
-sql_query =  """
+sql_query2 =  """
     SELECT 
         C.c_custkey AS customer_id,
         C.c_name AS customer_name,
@@ -54,6 +36,30 @@ sql_query =  """
     AND C.c_acctbal > 1000
     AND S.s_nationkey < 2000
     """
+sql_query ='''
+SELECT 
+        c.c_name AS customer_name,
+        o.o_orderkey AS order_id,
+        o.o_orderdate AS order_date,
+        p.p_name AS part_name,
+        s.s_name AS supplier_name,
+        l.l_quantity AS quantity,
+        l.l_extendedprice AS extended_price
+    FROM 
+        customer c,
+        orders o,
+        lineitem l,
+        part p,
+        partsupp ps,
+        supplier s
+    WHERE 
+        c.c_custkey = o.o_custkey
+        AND o.o_orderkey = l.l_orderkey
+        AND l.l_partkey = p.p_partkey
+        AND l.l_suppkey = s.s_suppkey
+        AND p.p_partkey = ps.ps_partkey
+        AND p.p_retailprice < 1000
+'''
 # Function to open the overlay input box
 def open_sql_input_overlay():
     # Create a Toplevel window for the SQL input box

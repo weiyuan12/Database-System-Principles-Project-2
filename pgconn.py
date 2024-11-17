@@ -1,4 +1,3 @@
-from functools import cache
 import psycopg2
 import tkinter as tk
 from tkinter import ttk
@@ -77,7 +76,6 @@ def get_execution_plan(query):
     except Exception as e:
         print(f"Error: {e}")
 
-@cache
 def get_unique_count(table, key) -> int:
     '''
     Function to get the number of unique values in a column
@@ -110,7 +108,6 @@ def get_unique_count(table, key) -> int:
     except Exception as e:
         print(f"Error: {e}")
 
-@cache
 def get_no_working_blocks() -> int:
     '''
     Function to get the number of working blocks in shared_buffers

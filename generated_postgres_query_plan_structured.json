@@ -1,0 +1,211 @@
+{
+  "operation": "SELECT + Join",
+  "source": [
+    {
+      "table": "lineitem",
+      "alias": "l",
+      "type": "Seq Scan",
+      "IO_cost": 0.0,
+      "tuples": 2500608
+    },
+    {
+      "table": "part",
+      "alias": "p",
+      "type": "Seq Scan",
+      "IO_cost": 0.0,
+      "tuples": 2152
+    },
+    {
+      "table": "supplier",
+      "alias": "s",
+      "type": "Seq Scan",
+      "IO_cost": 0.0,
+      "tuples": 10000
+    },
+    {
+      "table": "orders",
+      "alias": "o",
+      "type": "Index Scan",
+      "IO_cost": 0.43,
+      "tuples": 1
+    },
+    {
+      "table": "customer",
+      "alias": "c",
+      "type": "Seq Scan",
+      "IO_cost": 0.0,
+      "tuples": 62500
+    },
+    {
+      "table": "nation",
+      "alias": "n",
+      "type": "Seq Scan",
+      "IO_cost": 0.0,
+      "tuples": 160
+    },
+    {
+      "table": "region",
+      "alias": "r",
+      "type": "Seq Scan",
+      "IO_cost": 0.0,
+      "tuples": 160
+    }
+  ],
+  "joins": [
+    [
+      {
+        "table": "ps",
+        "alias": "ps",
+        "on": "ps_partkey",
+        "type": "Nested Loop",
+        "IO_cost": 12074.88,
+        "tuples": 628766
+      },
+      {
+        "table": "l",
+        "alias": "l",
+        "on": "l_partkey",
+        "type": "Nested Loop",
+        "IO_cost": 12074.88,
+        "tuples": 628766
+      }
+    ],
+    [
+      {
+        "table": "n",
+        "alias": "n",
+        "on": "n_regionkey",
+        "type": "Hash Join",
+        "IO_cost": 11074.44,
+        "tuples": 64565
+      },
+      {
+        "table": "r",
+        "alias": "r",
+        "on": "r_regionkey",
+        "type": "Hash Join",
+        "IO_cost": 11074.44,
+        "tuples": 64565
+      }
+    ],
+    [
+      {
+        "table": "s",
+        "alias": "s",
+        "on": "s_nationkey",
+        "type": "Hash Join",
+        "IO_cost": 11060.84,
+        "tuples": 64565
+      },
+      {
+        "table": "n",
+        "alias": "n",
+        "on": "n_nationkey",
+        "type": "Hash Join",
+        "IO_cost": 11060.84,
+        "tuples": 64565
+      }
+    ],
+    [
+      {
+        "table": "o",
+        "alias": "o",
+        "on": "o_custkey",
+        "type": "Hash Join",
+        "IO_cost": 11047.24,
+        "tuples": 64565
+      },
+      {
+        "table": "c",
+        "alias": "c",
+        "on": "c_custkey",
+        "type": "Hash Join",
+        "IO_cost": 11047.24,
+        "tuples": 64565
+      }
+    ],
+    [
+      {
+        "table": "l",
+        "alias": "l",
+        "on": "l_suppkey",
+        "type": "Hash Join",
+        "IO_cost": 5840.57,
+        "tuples": 64565
+      },
+      {
+        "table": "s",
+        "alias": "s",
+        "on": "s_suppkey",
+        "type": "Hash Join",
+        "IO_cost": 5840.57,
+        "tuples": 64565
+      }
+    ],
+    [
+      {
+        "table": "l",
+        "alias": "l",
+        "on": "l_partkey",
+        "type": "Hash Join",
+        "IO_cost": 5392.57,
+        "tuples": 64578
+      },
+      {
+        "table": "p",
+        "alias": "p",
+        "on": "p_partkey",
+        "type": "Hash Join",
+        "IO_cost": 5392.57,
+        "tuples": 64578
+      }
+    ],
+    [
+      {
+        "table": "orders",
+        "alias": "o",
+        "on": "o_orderkey",
+        "type": "Index Scan",
+        "IO_cost": 0.43,
+        "tuples": 1
+      },
+      {
+        "table": "lineitem",
+        "alias": "l",
+        "on": "l_orderkey",
+        "type": "Index Scan",
+        "IO_cost": 0.43,
+        "tuples": 1
+      }
+    ],
+    [
+      {
+        "table": "ps",
+        "alias": "ps",
+        "on": "ps_partkey",
+        "type": "Index Only Scan",
+        "IO_cost": 0.42,
+        "tuples": 4
+      },
+      {
+        "table": "part",
+        "alias": "p",
+        "on": "p_partkey",
+        "type": "Index Only Scan",
+        "IO_cost": 0.42,
+        "tuples": 4
+      }
+    ]
+  ],
+  "selects": [
+    {
+      "left": "(p_retailprice",
+      "operator": ">",
+      "right": "1000",
+      "alias": "p",
+      "type": "Seq Scan",
+      "IO_cost": 0.0,
+      "tuples": 2152
+    }
+  ]
+}

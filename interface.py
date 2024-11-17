@@ -3,6 +3,8 @@ from tkinter import ttk
 from whatif import get_nodes_and_edges, build_query_tree,total_IO_cost
 from preprocessing import process_query_plan_full,preprocess_query
 from constants import query_input_1,JOINS,SCANS,FILTERS
+import itertools
+from functools import partial
 #{'lineitem': 6001215, 'orders': 1500000, 'part': 200000, 'partsupp': 800000, 'customer': 150000, 'supplier': 10000, 'region': 5, 'nation': 25}
 
 
@@ -13,7 +15,12 @@ class TreeVisualizer:
         self.edges = None
         self.query_dict = query_dict
         self.use_dict_IO_tuples=use_dict_IO_tuples
+        self.buttons = []
         self.join_order = list(range(len(query_dict["joins"])))
+        self.original_join_order = list(range(len(query_dict["joins"])))
+        #self.permutations = itertools.permutations(self.join_order)
+        self.permutations = self.generate_valid_join_orders(query_dict["joins"])
+        self.current_permutation=None
         self.disable_buttons = disable_buttons
         self.screen_ratio = screen_ratio
         self.Tuples = Tuples
@@ -24,7 +31,7 @@ class TreeVisualizer:
 
         # Set the canvas width to the screen width
         canvas_width = screen_width
-
+        
         # Set the canvas height based on the screen_ratio
         canvas_height = screen_height // self.screen_ratio
         if isinstance(self.root, tk.Tk):
@@ -37,7 +44,7 @@ class TreeVisualizer:
         self.frame.grid_rowconfigure(0, weight=1)
         self.frame.grid_columnconfigure(0, weight=1)
         # Create a canvas with scrollbars
-        self.canvas = tk.Canvas(self.frame, bg='white',width=canvas_width-200, height=canvas_height, scrollregion=(0, 0, 2000, 2000))
+        self.canvas = tk.Canvas(self.frame, bg='white',width=canvas_width-200, height=canvas_height, scrollregion=(0, 0, 5000, 5000))
         self.h_scrollbar = ttk.Scrollbar(self.frame, orient="horizontal", command=self.canvas.xview)
         self.v_scrollbar = ttk.Scrollbar(self.frame, orient="vertical", command=self.canvas.yview)
         self.canvas.configure(xscrollcommand=self.h_scrollbar.set, yscrollcommand=self.v_scrollbar.set)
@@ -46,7 +53,7 @@ class TreeVisualizer:
         self.v_scrollbar.grid(row=0, column=0, sticky="ns")
         self.canvas.grid(row=0, column=1, sticky="nsew")
         self.h_scrollbar.grid(row=1, column=1, sticky="ew")
-
+        
         # Set frame to resize with window
         self.frame.grid_rowconfigure(0, weight=1)
         self.frame.grid_columnconfigure(1, weight=1)
@@ -61,14 +68,18 @@ class TreeVisualizer:
             self.create_join_buttons()
             self.create_scan_buttons()
         self.node_positions = {}
+
+        self.next_permutation()
         # Initial run to display the tree
         self.run()
 
     def create_tree_visualization(self):
         self.canvas.delete("all")
-        query_tree = build_query_tree(self.query_dict, self.join_order,self.use_dict_IO_tuples,self.Tuples,self.M)
+
+        query_tree,intermediate_relations = build_query_tree(self.query_dict, self.join_order,self.use_dict_IO_tuples,self.Tuples,self.M)
+        if(len(intermediate_relations)>1):
+            self.next_permutation()
         self.nodes, self.edges = get_nodes_and_edges(query_tree)
-        
         # Draw the root node
         start_x = 500
         start_y = 50
@@ -154,32 +165,36 @@ class TreeVisualizer:
             )
             btn.pack(side=tk.LEFT, padx=1, pady=1)
     
+    def _toggle_type(self, mode, index, options_list):
+        """Helper function to toggle between types in a given list."""
+        current_item = self.query_dict[mode][index]
+        if(mode=="joins"):
+            current_type = current_item[0]["type"]
+            current_type = current_item[1]["type"]
+        else:
+            current_type = current_item["type"]
+        
+        # Find the current type's index and toggle to the next one, looping around
+        current_index = options_list.index(current_type)
+        new_index = (current_index + 1) % len(options_list)
+        
+        # Update the type
+        if(mode=="joins"):
+            current_item[0]["type"] = options_list[new_index]
+            current_item[1]["type"] = options_list[new_index]
+        else:
+            current_item["type"] = options_list[new_index]
+
     def update_join_type(self, join_index):
         """Toggle the join type for the selected join."""
-        current_join = self.query_dict["joins"][join_index]
-        for join in current_join:
-            # Toggle between join types (Hash and Nested Loop as an example)
-            if join["type"] == JOINS[0]:
-                join["type"] = JOINS[1]
-            elif join["type"] == JOINS[1]:
-                join["type"] = JOINS[2]
-            elif join["type"] == JOINS[2]:
-                join["type"] = JOINS[3]
-            elif join["type"] == JOINS[3]:
-                join["type"] = JOINS[4]
-            else:
-                join["type"] = JOINS[0]
+        self._toggle_type('joins', join_index, JOINS)
         self.run()
-    def update_scan_types(self,mode,index):
-        current_scan = self.query_dict[mode][index]
 
-        if current_scan["type"] == SCANS[0]:
-            current_scan["type"] = SCANS[1]
-        elif current_scan["type"] == SCANS[1]:
-            current_scan["type"] = SCANS[2]
-        else:
-            current_scan["type"] = SCANS[0]
+    def update_scan_types(self, mode, index):
+        """Toggle the scan type for the selected scan."""
+        self._toggle_type(mode, index, SCANS)
         self.run()
+    
     def draw_node(self, node, x, y, use_dict_IO_tuples,level=0):
         node_id, node_type, value, IO_cost,tuples,Q_type = node
         if(use_dict_IO_tuples):
@@ -187,7 +202,6 @@ class TreeVisualizer:
         else:
             text = f"{node_type}: {value}\n Est IO: {IO_cost}, Est Tup:{tuples} \n Type: {Q_type}"
         # each node is represented by rectangle
-
         text_width=150
         text_item=self.canvas.create_text(
         x, y,
@@ -216,51 +230,103 @@ class TreeVisualizer:
         text=text,
         font=("Arial", 10),
         width=text_width,  
-        anchor="center"  
+        anchor="center",
         )
-
         self.node_positions[node_id] = (x, y)
-
         # Draw each child node
         children = [edge[1] for edge in self.edges if edge[0] == node_id]
         if children:
-            # Set wider spacing for the first k levels, then reduce for deeper levels
-            k = 1
+            # Define child spacing for the horizontal and vertical positioning
+            k = 1  # Custom level threshold for spacing adjustments
             if level < k:
-                child_spacing = 450  # Wider spacing
+                child_spacing = 450  # Wider horizontal spacing for shallow levels
             else:
-                child_spacing = 300  # Narrower spacing
-
+                child_spacing = 250  # Narrower horizontal spacing for deeper levels
+            
             total_width = (len(children) - 1) * child_spacing
-            child_x = x - total_width // 2 # Center children horizontally around the parent
+            child_x = x - total_width // 2  # Center children horizontally around the parent
+
+            # Calculate dynamic vertical spacing based on level
+            if len(children) <= 1:
+                vertical_spacing = 50 + (level * 12)  # Move single child slightly up
+            else:
+                vertical_spacing = 100 + (level * 25)  # Move multiple children further down
 
             for child_id in children:
                 child_node = next(n for n in self.nodes if n[0] == child_id)
-                # Recursively draw each child node with increased level
-                self.draw_node(child_node, child_x, y + 80,self.use_dict_IO_tuples, level + 1)
-                child_x += child_spacing
+                # Recursively draw each child node with adjusted x and y, and increased level
+                self.draw_node(child_node, child_x, y + vertical_spacing, use_dict_IO_tuples, level + 1)
+                child_x += child_spacing  # Move child_x position for the next child
+
 
 
     def create_option_buttons(self, frame):
-        options = ["Rotate Join Order ->", "<- Rotate Join Order"]
-        btn = tk.Button(frame, text=options[0], command=lambda o=options[0]: self.rotate_join_order("left"))
-        btn.pack(side=tk.LEFT, padx=5, pady=5)
-        btn = tk.Button(frame, text=options[1], command=lambda o=options[0]: self.rotate_join_order("right"))
-        btn.pack(side=tk.LEFT, padx=5, pady=5)
-
-    def rotate_join_order(self, direction):
-        """Shift the join_order array. Direction can be 'left' or 'right'."""
-        if self.join_order:
-            if direction == "left":
-                self.join_order.append(self.join_order.pop(0))
-            elif direction == "right":
-                self.join_order.insert(0, self.join_order.pop())
+            options = ["Rotate Join Order ->", "<- Rotate Join Order"]
+            
+            btn = tk.Button(frame, text=options[0], command=lambda o=options[0]: self.next_permutation())
+            btn.pack(side=tk.LEFT, padx=1, pady=1)
+    def next_permutation(self):
+        """Move to the next permutation in the list."""
+        try:
+            # Get the next permutation
+            self.current_permutation = next(self.permutations)
+            self.join_order = list(self.current_permutation)  # Update the current order
             self.run()
+        except StopIteration:
+            print("reset")
+            self.reset_permutations()
+            self.current_permutation = next(self.permutations)
+            self.join_order = list(self.current_permutation)
+            self.run()
+
+    def reset_permutations(self):
+        self.permutations = itertools.permutations(self.original_join_order)
+        self.current_permutation = self.original_join_order
+        
     def run(self):
         """Runs the visualization setup and updates tree visualization."""
         self.create_tree_visualization()
 
-    
+    def get_join_validity(self, joins, order):
+        """
+        Determine the validity between joins based on the tables involved for a given order.
+        The order is valid if each join contains at least one table from the previous join's dependency.
+        """
+        dependencies = [[] for _ in range(len(joins))]
+        
+        # Iterate through each join in the given order
+        for i, idx in enumerate(order):
+            temp = []  # List to hold the tables in the current join
+            
+            # Collect all tables (aliases) from the current join
+            for table_info in joins[idx]:
+                temp.append(table_info["alias"])
+            
+            # Check validity
+            if i > 0:  # If it's not the first join
+                # Check if the previous dependency has at least one table from the current join
+                if not any(table in dependencies[i-1] for table in temp):
+                    return False  # If no table in the previous dependency matches the current temp, invalid order
+
+            # Store the dependency for the current join (cumulative list of tables)
+            if i == 0:
+                dependencies[i] = temp  # For the first join, just add its tables
+            else:
+                dependencies[i] = dependencies[i-1] + temp  # Add the tables from the previous dependency and the current join
+
+        return True
+
+
+    def generate_valid_join_orders(self, joins):
+        """
+        Generate all valid join orders based on the given join operations.
+        """
+        # Get the table dependencies
+        all_orders = itertools.permutations(range(len(joins)))
+        
+        # Return a generator that yields only valid join orders
+        return (order for order in all_orders if self.get_join_validity(joins, order))
+        
 
 # Set up the Tkinter window and visualize the tree
 
