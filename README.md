@@ -3,7 +3,7 @@
 
 ## Running application
 Ensure that the postgres database is up and running before running the application.
-### Run the interface.py to launch the application
+### Run the project.py to launch the application
 
 ```bash
 python project.py
