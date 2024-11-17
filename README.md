@@ -56,7 +56,7 @@ connect to db
 - username: postgres
 - password: password
 
-4.1 If pgadmin not working, run pgadmin from commandline
+5. If pgadmin not working, run pgadmin from commandline
 ```bash
 psql -h localhost -p 5433 -U postgres
 password: password
@@ -65,7 +65,7 @@ password: password
 ```
 
 
-5. Restarting
+6. Restarting
 - force recreate containers 
 ```bash
 docker-compose up -d --force-recreate
