@@ -77,6 +77,7 @@ class TreeVisualizer:
         self.canvas.delete("all")
 
         query_tree,intermediate_relations = build_query_tree(self.query_dict, self.join_order,self.use_dict_IO_tuples,self.Tuples,self.M)
+        
         self.nodes, self.edges = get_nodes_and_edges(query_tree)
         # Draw the root node
         start_x = 500
@@ -95,7 +96,34 @@ class TreeVisualizer:
         # Remove old bottom label if it exists
         if hasattr(self, 'bottom_label') and self.bottom_label.winfo_exists():
             self.bottom_label.destroy()
+        if len(intermediate_relations) > 1:
+            invalid_text=self.canvas.create_text(
+                500, 50,  # Position in the center of the canvas
+                text="Invalid tree!", 
+                font=("Arial", 40, "bold"), 
+                fill="red",
+                anchor="center"
+                                    )
+            # Get the bounding box of the text
+            text_bbox = self.canvas.bbox(invalid_text)  # (x1, y1, x2, y2)
 
+            # Add padding for the background rectangle
+            padding = 10
+            x1, y1, x2, y2 = text_bbox
+            x1 -= padding
+            y1 -= padding
+            x2 += padding
+            y2 += padding
+
+            # Create the rectangle behind the text
+            background = self.canvas.create_rectangle(
+                x1, y1, x2, y2,
+                fill="lightyellow",  # Background color
+                outline="black"      # Optional outline color
+            )
+            
+            # Ensure the rectangle is behind the text
+            self.canvas.tag_lower(background, invalid_text)
         # Add the updated statistics as a new label
         if self.disable_buttons is True:
             mode = "Original"
